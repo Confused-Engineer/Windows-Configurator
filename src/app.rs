@@ -321,8 +321,8 @@ impl eframe::App for TemplateApp {
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui|{
                     ui.add(egui::github_link_file!(
-                        "https://github.com/Confused-Engineer",
-                        "Source code. (Coming with full release)"
+                        "https://github.com/Confused-Engineer/Windows-Configurator",
+                        "Source code."
                     ));
                     ui.label("Brought to you by a confused engineer!");
                     egui::warn_if_debug_build(ui);
