@@ -320,10 +320,8 @@ impl eframe::App for TemplateApp {
             //ui.add_space(20.0);
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui|{
-                    ui.add(egui::github_link_file!(
-                        "https://github.com/Confused-Engineer/Windows-Configurator",
-                        "Source code."
-                    ));
+                    ui.hyperlink_to("Source Code",
+                    "https://github.com/Confused-Engineer/Windows-Configurator/");
                     ui.label("Brought to you by a confused engineer!");
                     egui::warn_if_debug_build(ui);
                 });
