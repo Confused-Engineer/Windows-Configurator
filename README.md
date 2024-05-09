@@ -1,0 +1,1 @@
+The purpose of this application is a combined effort to bring in common settings used for windows troubleshooting and windows setup as well as for me to learn effective Rust techniques. It will be obvious that I have a lot to learn once you look at the code.
