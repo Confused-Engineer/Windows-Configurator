@@ -1,8 +1,10 @@
 use std::process::Command;
 use egui::Ui;
+
+use crate::app::TroubleshootInfo;
 //use std::sync::Arc;
 
-pub fn page_troubleshoot(ui: &mut Ui, sys_info: &Vec<String>, sys_commands: &mut Vec<String>)
+pub fn page_troubleshoot(ui: &mut Ui,sys_struct: &mut TroubleshootInfo)
 {
     
     ui.columns(2, |ui|{
@@ -21,18 +23,18 @@ pub fn page_troubleshoot(ui: &mut Ui, sys_info: &Vec<String>, sys_commands: &mut
 
                 ui[0].heading("Ping");
                 ui[0].label("Enter IP");
-                ui[0].text_edit_singleline(&mut sys_commands[0]);
+                ui[0].text_edit_singleline(&mut sys_struct.ping);
                 if ui[0].add_sized([100.0, 40.0], egui::widgets::Button::new("Ping") ).clicked()
                 {
-                    ping(sys_commands[0].to_string());
+                    ping(sys_struct.ping.to_string());
                 }
 
                 ui[1].heading("Trace Route");
                 ui[1].label("Enter Domain");
-                ui[1].text_edit_singleline(&mut sys_commands[1]);
+                ui[1].text_edit_singleline(&mut sys_struct.tracert);
                 if ui[1].add_sized([100.0, 40.0], egui::widgets::Button::new("Trace Route") ).clicked()
                 {
-                    tracert(sys_commands[1].to_string());
+                    tracert(sys_struct.tracert.to_string());
                 }
 
                 ui[0].horizontal(|ui|{
@@ -94,11 +96,26 @@ pub fn page_troubleshoot(ui: &mut Ui, sys_info: &Vec<String>, sys_commands: &mut
         ui[1].separator();
         egui::ScrollArea::vertical().id_source("TroubleshootInfo").show(&mut ui[1], |ui|{
             ui.heading("General");
-            ui.label(sys_info[0].to_string());
+
+
+            ui.heading("Sysinfo");
+            if !sys_struct.sys_info_receiver.is_empty()
+            {
+                sys_struct.systeminfo = sys_struct.sys_info_receiver.try_recv().unwrap();
+            }
+            ui.label(&sys_struct.systeminfo);
+
             ui.separator();
-            ui.heading("IPconfig");
-            ui.label(sys_info[1].to_string());
+
+            ui.heading("IP Config Info");
+            if !sys_struct.ipconfig_info_receiver.is_empty()
+            {
+                sys_struct.ipconfig = sys_struct.ipconfig_info_receiver.try_recv().unwrap();
+            }
+            ui.label(&sys_struct.ipconfig);
             ui.add_space(20.0);
+
+
         });
     
     

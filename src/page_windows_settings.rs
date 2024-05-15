@@ -1,7 +1,9 @@
 use egui::Ui;
 use std::process::Command;
 
-pub fn show_windows_settings(ui: &mut Ui, vpn_vec: &mut Vec<String>, pc_name: &mut String, vpn_bool: &mut bool, is_admin: &mut bool)
+use crate::app::WindowsSettings;
+
+pub fn show_windows_settings(ui: &mut Ui, win_settings_struct: &mut WindowsSettings)
 {
     ui.columns(3, |ui| {
         ui[0].heading("Open in Settings");
@@ -109,27 +111,27 @@ pub fn show_windows_settings(ui: &mut Ui, vpn_vec: &mut Vec<String>, pc_name: &m
             ui.label("VPN Setup");
             ui.add_space(8.0);
             ui.label("Name");
-            ui.text_edit_singleline(&mut vpn_vec[0]);
+            ui.text_edit_singleline(&mut win_settings_struct.vpn_name);
             ui.label("Address");
-            ui.text_edit_singleline(&mut vpn_vec[1]);
+            ui.text_edit_singleline(&mut win_settings_struct.vpn_addr);
             ui.label("Secret Key");
             ui.horizontal(|ui|{
-                let view_password = !vpn_bool.clone();
-                egui::TextEdit::singleline(&mut vpn_vec[2]).password(view_password).show(ui);
-                ui.checkbox( vpn_bool, "view")
+                let view_password = !win_settings_struct.vpn_view_secret_key;
+                egui::TextEdit::singleline(&mut win_settings_struct.vpn_secret_key).password(view_password).show(ui);
+                ui.checkbox( &mut win_settings_struct.vpn_view_secret_key, "view")
             });
             
-            ui.checkbox(is_admin, "Run for all users? (Requires Admin Priv)");
-            if *is_admin
+            ui.checkbox(&mut win_settings_struct.vpn_add_as_admin, "Run for all users? (Requires Admin Priv)");
+            if win_settings_struct.vpn_add_as_admin
             {
                 ui.columns(2, |ui| {
                     if ui[0].add_sized([100.0, 40.0], egui::widgets::Button::new("Add MSCHAPv22") ).clicked()
                     {
-                        vpn_add_admin(&vpn_vec, "mschapv2");
+                        vpn_add_admin(win_settings_struct, "mschapv2");
                     }
                     if ui[1].add_sized([100.0, 40.0], egui::widgets::Button::new("Add PAP") ).clicked()
                     {
-                        vpn_add_admin(&vpn_vec, "chap");
+                        vpn_add_admin(win_settings_struct, "chap");
                     }
                 });
             }
@@ -138,11 +140,11 @@ pub fn show_windows_settings(ui: &mut Ui, vpn_vec: &mut Vec<String>, pc_name: &m
                 ui.columns(2, |ui| {
                     if ui[0].add_sized([100.0, 40.0], egui::widgets::Button::new("Add MSCHAPv2") ).clicked()
                     {
-                        vpn_add(&vpn_vec, "mschapv2");
+                        vpn_add(win_settings_struct, "mschapv2");
                     }
                     if ui[1].add_sized([100.0, 40.0], egui::widgets::Button::new("Add PAP") ).clicked()
                     {
-                        vpn_add(&vpn_vec, "chap");
+                        vpn_add(win_settings_struct, "chap");
                     }
                 });
             }
@@ -153,10 +155,10 @@ pub fn show_windows_settings(ui: &mut Ui, vpn_vec: &mut Vec<String>, pc_name: &m
             ui.small("Note: Removing VPNs only applies to current user unless running as admin");
             ui.add_space(8.0);
             ui.label("Rename PC");
-            ui.text_edit_singleline(pc_name);
+            ui.text_edit_singleline(&mut win_settings_struct.pc_name);
             if ui.add_sized([100.0, 40.0], egui::widgets::Button::new("Rename PC") ).clicked()
             {
-                rename_pc(pc_name);
+                rename_pc(&win_settings_struct.pc_name);
             }
             ui.small("Note: Renaming PC does note take effect until after reboot.");
             
@@ -286,7 +288,7 @@ async fn never_sleep() {
 
 
 #[tokio::main]
-async fn vpn_add(vpn_vec: &Vec<String>, function: &str) {
+async fn vpn_add(win_settings_struct: &mut WindowsSettings, function: &str) {
 
     #[allow(unused_assignments)]
     let mut auth_method = String::new();
@@ -303,13 +305,13 @@ async fn vpn_add(vpn_vec: &Vec<String>, function: &str) {
     Command::new("cmd")
     .arg("/C")
     .arg("start")
-    .args(["powershell","-window","hidden","add-VpnConnection","-Name", vpn_vec[0].as_str(), "-ServerAddress", vpn_vec[1].as_str(), "-tunneltype", "L2tp","-EncryptionLevel", "Optional", "-L2tpPsk", vpn_vec[2].replace("$(", "").as_str(), "-AuthenticationMethod", auth_method.as_str(),"-Force"])
+    .args(["powershell","-window","hidden","add-VpnConnection","-Name", win_settings_struct.vpn_name.as_str(), "-ServerAddress", win_settings_struct.vpn_addr.as_str(), "-tunneltype", "L2tp","-EncryptionLevel", "Optional", "-L2tpPsk", win_settings_struct.vpn_secret_key.replace("$(", "").as_str(), "-AuthenticationMethod", auth_method.as_str(),"-Force"])
     .spawn()
     .expect("failed to execute process");
 }
 
 #[tokio::main]
-async fn vpn_add_admin(vpn_vec: &Vec<String>, function: &str) {
+async fn vpn_add_admin(win_settings_struct: &mut WindowsSettings, function: &str) {
 
     #[allow(unused_assignments)]
     let mut auth_method = String::new();
@@ -326,7 +328,7 @@ async fn vpn_add_admin(vpn_vec: &Vec<String>, function: &str) {
     Command::new("cmd")
     .arg("/C")
     .arg("start")
-    .args(["powershell","-window","hidden","add-VpnConnection","-AllUserConnection","-Name", vpn_vec[0].as_str(), "-ServerAddress", vpn_vec[1].as_str(), "-tunneltype", "L2tp","-EncryptionLevel", "Optional", "-L2tpPsk", vpn_vec[2].replace("$(", "").as_str(), "-AuthenticationMethod", auth_method.as_str(),"-Force"])
+    .args(["powershell","-window","hidden","add-VpnConnection","-AllUserConnection","-Name", win_settings_struct.vpn_name.as_str(), "-ServerAddress", win_settings_struct.vpn_addr.as_str(), "-tunneltype", "L2tp","-EncryptionLevel", "Optional", "-L2tpPsk", win_settings_struct.vpn_secret_key.replace("$(", "").as_str(), "-AuthenticationMethod", auth_method.as_str(),"-Force"])
     .spawn()
     .expect("failed to execute process");
 }

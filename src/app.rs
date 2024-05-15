@@ -4,7 +4,9 @@ use std::io::Write;
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::env;
+use std::time::Duration;
 use ini::Ini;
+use crossbeam_channel::{bounded, Receiver, Sender};
 
 //use std::sync::{Arc, RwLock};
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -22,25 +24,21 @@ pub struct TemplateApp {
     page_microsoft_settings: bool,
     page_debug: bool,
     
-    vpn_vec: Vec<String>,
-    vpn_bool: bool,
-    pc_name: String,
-    is_admin: bool,
+    #[serde(skip)]
+    win_settings_struct: WindowsSettings,
 
     #[serde(skip)]
-    sys_commands: Vec<String>,
-    #[serde(skip)]
-    sys_info: Vec<String>,
-    #[serde(skip)]
     config: Ini,
+    #[serde(skip)]
+    sys_struct: TroubleshootInfo,
+
     
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
         Self {
-            // Example stuff:
-            
+
 
             page_main: true,
             page_apps: false,
@@ -49,15 +47,11 @@ impl Default for TemplateApp {
             page_microsoft_settings: false,
             page_troubleshoot: false,
             page_debug: false,
-            vpn_vec: ["".to_string(),"".to_string(),"".to_string()].to_vec(),
-            vpn_bool: false,
-            pc_name: "".to_string(),
-            is_admin: false,
-            sys_info: Vec::new(),
-            sys_commands: Vec::new(),
             config: config_check(),
+            sys_struct: TroubleshootInfo::default(),
+            win_settings_struct: WindowsSettings::default(),
             
-        }
+        } 
     }
 }
 
@@ -74,6 +68,8 @@ impl TemplateApp {
         }
 
         Default::default()
+
+        
     }
 
     fn set_blank(&mut self)
@@ -88,43 +84,7 @@ impl TemplateApp {
     }
 
 
-    fn set_sys_info(&mut self)
-    {
-        if self.sys_commands.len() < 2
-        {
-            self.sys_commands.push("".to_string());
-            self.sys_commands.push("".to_string());
-        }
-
-        self.sys_info.clear();
-
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        
-        let sysinfo = rt.block_on(async {
-            let stdout_string = String::from_utf8(Command::new("systeminfo.exe").creation_flags(0x08000000).stdout(Stdio::piped()).output().unwrap().stdout).unwrap();
-            stdout_string
-        });
-
-        
-        self.sys_info.push(sysinfo);
-
-        let ipconfig = rt.block_on(async {
-            let stdout_string = String::from_utf8(
-                Command::new("ipconfig.exe")
-                    .arg("/all")
-                    .creation_flags(0x08000000)
-                    .stdout(Stdio::piped())
-                    .output()
-                    .unwrap()
-                    .stdout)
-            .unwrap();
-            stdout_string
-        });
-
-        self.sys_info.push(ipconfig);
-
-        
-    }
+          
 
     fn restart_admin(&mut self)
     {
@@ -140,6 +100,8 @@ impl TemplateApp {
     {
         self.config = Ini::load_from_file("config.ini").unwrap();
     }
+
+
 }
 
 impl eframe::App for TemplateApp {
@@ -221,16 +183,15 @@ impl eframe::App for TemplateApp {
                     {
                         self.restart_admin();
                     }
-                    if ui.button("Reload System Info").clicked()
-                    {
-                        ui.close_menu();
-                        self.set_sys_info();
-                    }
+
                     if ui.button("Reload Config").clicked()
                     {
+                        
                         ui.close_menu();
                         self.reload_config();
+
                     }
+                    
                 });
 
                 #[cfg(debug_assertions)]
@@ -243,6 +204,7 @@ impl eframe::App for TemplateApp {
                     }
                 });
                 ui.add_space(8.0);
+                
                 egui::widgets::global_dark_light_mode_switch(ui);
             });
         });
@@ -298,16 +260,13 @@ impl eframe::App for TemplateApp {
                 ui.heading("Windows Settings");
                 ui.label("Change and Open Common Windows Settings");
                 ui.separator();
-                page_windows_settings::show_windows_settings(ui, &mut self.vpn_vec, &mut self.pc_name, &mut self.vpn_bool, &mut self.is_admin);
+                page_windows_settings::show_windows_settings(ui, &mut self.win_settings_struct);
             }
 
             if self.page_troubleshoot
             {
-                if self.sys_info.is_empty()
-                {
-                    self.set_sys_info();
-                }
-                page_troubleshoot::page_troubleshoot(ui, &self.sys_info, &mut self.sys_commands);
+
+                page_troubleshoot::page_troubleshoot(ui, &mut self.sys_struct);
             }
 
             if self.page_debug {
@@ -355,6 +314,8 @@ fn config_check() -> Ini
 
 }
 
+
+
 fn config_write(config: &str)
 {
     use std::fs::File;
@@ -389,4 +350,109 @@ Chrome = Google.Chrome
 7-zip = 7zip.7zip");
         }
 
+}
+
+
+pub struct WindowsSettings {
+    pub vpn_name: String,
+    pub vpn_addr: String,
+    pub vpn_secret_key: String,
+    pub vpn_view_secret_key: bool,
+    pub vpn_add_as_admin: bool,
+    pub pc_name: String,
+}
+
+impl Default for WindowsSettings {
+    fn default() -> Self {
+        Self { vpn_name: String::new(),
+            vpn_addr: String::new(),
+            vpn_secret_key: String::new(),
+            vpn_view_secret_key: false,
+            vpn_add_as_admin: false,
+            pc_name: String::new(),
+        }
+    }
+}
+
+pub struct TroubleshootInfo {
+    pub ping: String,
+    pub tracert: String,
+    pub systeminfo: String,
+    pub ipconfig: String,
+    pub sys_info_receiver: crossbeam_channel::Receiver<std::string::String>,
+    pub ipconfig_info_receiver: crossbeam_channel::Receiver<std::string::String>,
+}
+
+
+impl Default for TroubleshootInfo {
+    fn default() -> Self {
+        Self { 
+            ping: String::new(),
+            tracert: String::new(), 
+            systeminfo: String::from("Loading"), 
+            ipconfig: String::from("Loading"),
+            sys_info_receiver: Self::set_sys_info(),
+            ipconfig_info_receiver: Self::set_ipconfig(),
+        }
+    }
+    
+}
+
+impl TroubleshootInfo {
+    fn set_sys_info() -> crossbeam_channel::Receiver<std::string::String>
+    {
+        let tx2: Sender<String>;
+        let rx2: Receiver<String>;
+        (tx2, rx2) = bounded(1);
+        
+        
+        std::thread::spawn(move || {
+            loop {
+
+                let stdout_string = String::from_utf8(
+                    Command::new("systeminfo.exe")
+                        .creation_flags(0x08000000)
+                        .stdout(Stdio::piped())
+                        .output()
+                        .unwrap()
+                        .stdout)
+                .unwrap();
+                let _ = tx2.send(stdout_string);
+                std::thread::sleep(Duration::from_secs(10));
+            }
+
+        });
+
+        rx2
+        
+    }
+
+    fn set_ipconfig() -> crossbeam_channel::Receiver<std::string::String>
+    {
+        let tx: Sender<String>;
+        let rx: Receiver<String>;
+        (tx, rx) = bounded(1);
+        
+
+        std::thread::spawn(move || {
+            loop {
+
+                let stdout_string = String::from_utf8(
+                    Command::new("ipconfig.exe")
+                        .arg("/all")
+                        .creation_flags(0x08000000)
+                        .stdout(Stdio::piped())
+                        .output()
+                        .unwrap()
+                        .stdout)
+                .unwrap();
+                let _ = tx.send(stdout_string);
+                std::thread::sleep(Duration::from_secs(10));
+            }
+
+        });
+
+        rx
+        
+    }
 }
