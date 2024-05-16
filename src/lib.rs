@@ -2,9 +2,7 @@
 
 mod app;
 pub use app::TemplateApp;
-mod page_main;
-mod page_apps;
-mod page_tokens;
-mod page_windows_settings;
-mod page_troubleshoot;
-mod page_debug;
+mod pages_apps;
+mod pages_other;
+mod pages_settings;
+mod pages_troubleshooting;

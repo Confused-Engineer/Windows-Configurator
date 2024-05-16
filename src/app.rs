@@ -1,12 +1,14 @@
-use crate::page_debug::show_page_debug;
-use crate::{page_apps, page_main, page_tokens, page_troubleshoot, page_windows_settings};
-use std::io::Write;
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::env;
 use std::time::Duration;
-use ini::Ini;
+use ini::{Error, Ini};
 use crossbeam_channel::{bounded, Receiver, Sender};
+
+use crate::pages_other::*;
+use crate::pages_settings::*;
+use crate::pages_troubleshooting::*;
+use crate::pages_apps::*;
 
 //use std::sync::{Arc, RwLock};
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -16,7 +18,6 @@ pub struct TemplateApp {
     // Example stuff:
     
     page_main: bool,
-    
     page_apps: bool,
     page_apps_winget: bool,
     page_apps_tokens: bool,
@@ -28,18 +29,14 @@ pub struct TemplateApp {
     win_settings_struct: WindowsSettings,
 
     #[serde(skip)]
-    config: Ini,
+    config: Config,
     #[serde(skip)]
     sys_struct: TroubleshootInfo,
-
-    
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
         Self {
-
-
             page_main: true,
             page_apps: false,
             page_apps_winget: false,
@@ -47,7 +44,7 @@ impl Default for TemplateApp {
             page_microsoft_settings: false,
             page_troubleshoot: false,
             page_debug: false,
-            config: config_check(),
+            config: Config::default(),
             sys_struct: TroubleshootInfo::default(),
             win_settings_struct: WindowsSettings::default(),
             
@@ -68,8 +65,6 @@ impl TemplateApp {
         }
 
         Default::default()
-
-        
     }
 
     fn set_blank(&mut self)
@@ -81,14 +76,10 @@ impl TemplateApp {
         self.page_microsoft_settings = false;
         self.page_troubleshoot = false;
         self.page_debug = false;
-    }
-
-
-          
+    }  
 
     fn restart_admin(&mut self)
     {
-        
         Command::new("powershell")
             .args(["start-process",env::current_exe().unwrap().as_path().display().to_string().as_str(), "-verb", "runas"])
             .creation_flags(0x08000000)
@@ -98,10 +89,8 @@ impl TemplateApp {
 
     fn reload_config(&mut self)
     {
-        self.config = Ini::load_from_file("config.ini").unwrap();
+        self.config.validate();
     }
-
-
 }
 
 impl eframe::App for TemplateApp {
@@ -121,19 +110,15 @@ impl eframe::App for TemplateApp {
             egui::menu::bar(ui, |ui| {
                 // NOTE: no File->Quit on web pages!
                 
-                
                 ui.menu_button("File", |ui| {
                     if ui.button("Quit").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
-                    
-                    
                 });
                 ui.menu_button("View", |ui|{
 
                     if ui.button("Main").clicked()
                     {
-                        
                         self.set_blank();
                         self.page_main = true;
                         ui.close_menu();
@@ -147,15 +132,17 @@ impl eframe::App for TemplateApp {
                             self.page_apps = true;
                             self.page_apps_winget = true;
                             ui.close_menu();
+                            self.config.validate();
                         }
+
                         if ui.button("Tokens").clicked()
                         {
                             self.set_blank();
                             self.page_apps = true;
                             self.page_apps_tokens = true;
+                            self.config.validate();
                             ui.close_menu();
                         }
-
                     });
 
                     if ui.button("Windows Settings").clicked()
@@ -169,29 +156,24 @@ impl eframe::App for TemplateApp {
                         if ui.button("General").clicked()
                         {
                             self.set_blank();
-
                             self.page_troubleshoot = true;
-                            
                             ui.close_menu();
                         }
-
                     });
                 });
 
                 ui.menu_button("Options", |ui|{
                     if ui.button("Restart as Admin").clicked()
                     {
+                        ui.close_menu();
                         self.restart_admin();
                     }
 
                     if ui.button("Reload Config").clicked()
                     {
-                        
                         ui.close_menu();
                         self.reload_config();
-
                     }
-                    
                 });
 
                 #[cfg(debug_assertions)]
@@ -243,16 +225,22 @@ impl eframe::App for TemplateApp {
                 ui.label("The Apps Section is where you will find tools for installing, updating, and uninstalling certain applications.");
                 ui.separator();
 
-                if self.page_apps_winget
+                if self.config.config_check.is_ok()
                 {
-                    page_apps::page_apps(ui, &self.config);
                     
+                    if self.page_apps_winget
+                    {
+                        page_apps::page_apps(ui, &self.config.config);
+                    }
+    
+                    if self.page_apps_tokens
+                    {
+                        page_tokens::show_page_tokens(ui, &self.config.config);
+                    }
+                } else if self.config.config_check.is_err() {
+                    page_config_error::show_page_config_error(ui, &mut self.config)
                 }
 
-                if self.page_apps_tokens
-                {
-                    page_tokens::show_page_tokens(ui, &self.config);
-                }
             }
             
             if self.page_microsoft_settings
@@ -265,18 +253,14 @@ impl eframe::App for TemplateApp {
 
             if self.page_troubleshoot
             {
-
                 page_troubleshoot::page_troubleshoot(ui, &mut self.sys_struct);
             }
 
-            if self.page_debug {
-                show_page_debug(ui, &self.config);
+            if self.page_debug 
+            {
+                page_debug::show_page_debug(ui, &self.config.config);
             }
 
-            
-
-
-            //ui.add_space(20.0);
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui|{
                     ui.hyperlink_to("Source Code",
@@ -284,72 +268,39 @@ impl eframe::App for TemplateApp {
                     ui.label("Brought to you by a confused engineer!");
                     egui::warn_if_debug_build(ui);
                 });
-                
-                
             });
         });
     }
 }
 
-fn config_check() -> Ini
-{
-    use std::fs;
-    let config = "config.ini";
-    let config_path = std::path::Path::new(config);
-    if config_path.exists()
-    {
-        let config_file = Ini::load_from_file(config);
-        if config_file.is_err()
-        {
-            let remove_config = fs::remove_file(config);
-            if remove_config.is_ok()
-            {
-                config_write(config);
-            }
-        }
-    } else {
-        config_write(config);
-    }
-    Ini::load_from_file(config).unwrap()
 
+pub struct Config
+{
+    config: Ini,
+    config_check: Result<Ini, Error>
 }
 
-
-
-fn config_write(config: &str)
+impl Default for Config
 {
-    use std::fs::File;
-    let config_file = File::create(config);
-        if config_file.is_ok()
-        {
-            let _ = config_file.unwrap().write_all(b"
-# EXE/MSI = Installer Type
-# Online/Local refer to the package existing in the same directory as the program or required the package to be downloaded from a link first
-# To note EXE-Local calls the package directly so it will work in most cases for EXE's, MSI, and MSIX package installers. 
-# MSI calls MSI exec in order to provide reliable functionality for that package type.    
-[EXE-Local]
-chitubox = CHITUBOX64Install_V1.9.5.exe
-[EXE-Online]
-AppLauncher = https://nc.a5f.org/s/QGpqJYgbNdW56A4/download/AppLauncher%20Installer%20V0.3.exe
-[MSI-Local]
-[MSI-Online]      
-# Specify tokens to use and save as some applications require tokens for setup
-[Tokens]
-app1 = bkjvpjefghiijfefewddd\\ddfeegrht==
-app2 = token2     
-# This section is for winget installs.
-# The format is 
-# winget-[category]
-# Friendly App Name = Winget ID
-#
-# this can be found by opening cmd and typing 'winget search appname'
-# You can make your own categories and add and remove apps as you like and the next time the config is reloaded they will appear
-[winget-Browsers]
-Chrome = Google.Chrome
-[winget-System]
-7-zip = 7zip.7zip");
+    fn default() -> Self {
+        Self {
+            config: Ini::new(),
+            config_check: Ini::load_from_file("config.ini")
         }
+    }
+}
 
+impl Config
+{
+    pub fn validate(&mut self)
+    {
+        
+        self.config_check = Ini::load_from_file("config.ini");
+        if self.config_check.is_ok()
+        {
+            self.config = self.config_check.as_ref().unwrap().clone();
+        }
+    }
 }
 
 
@@ -395,7 +346,6 @@ impl Default for TroubleshootInfo {
             ipconfig_info_receiver: Self::set_ipconfig(),
         }
     }
-    
 }
 
 impl TroubleshootInfo {
@@ -404,11 +354,9 @@ impl TroubleshootInfo {
         let tx2: Sender<String>;
         let rx2: Receiver<String>;
         (tx2, rx2) = bounded(1);
-        
-        
+
         std::thread::spawn(move || {
             loop {
-
                 let stdout_string = String::from_utf8(
                     Command::new("systeminfo.exe")
                         .creation_flags(0x08000000)
@@ -420,11 +368,8 @@ impl TroubleshootInfo {
                 let _ = tx2.send(stdout_string);
                 std::thread::sleep(Duration::from_secs(10));
             }
-
         });
-
         rx2
-        
     }
 
     fn set_ipconfig() -> crossbeam_channel::Receiver<std::string::String>
@@ -433,10 +378,8 @@ impl TroubleshootInfo {
         let rx: Receiver<String>;
         (tx, rx) = bounded(1);
         
-
         std::thread::spawn(move || {
             loop {
-
                 let stdout_string = String::from_utf8(
                     Command::new("ipconfig.exe")
                         .arg("/all")
@@ -449,10 +392,7 @@ impl TroubleshootInfo {
                 let _ = tx.send(stdout_string);
                 std::thread::sleep(Duration::from_secs(10));
             }
-
         });
-
-        rx
-        
+        rx 
     }
 }

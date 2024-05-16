@@ -4,7 +4,8 @@ use std::process::Command;
 
 pub fn page_apps(ui: &mut Ui, config: &Ini)
 {
-
+    
+    
 
     ui.columns(3, |ui|{
         ui[0].heading("Click to Install Apps");
@@ -16,7 +17,7 @@ pub fn page_apps(ui: &mut Ui, config: &Ini)
                 {
                     if key.unwrap().contains("winget")
                     {
-                        display_section(ui, key.unwrap(), config, "winget-")
+                        display_section(ui, key.unwrap(), &config, "winget-")
                     }
                 }  
             }
