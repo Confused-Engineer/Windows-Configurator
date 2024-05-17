@@ -87,10 +87,7 @@ impl TemplateApp {
             .expect("failed to execute process");
     }
 
-    fn reload_config(&mut self)
-    {
-        self.config.validate();
-    }
+
 }
 
 impl eframe::App for TemplateApp {
@@ -132,7 +129,6 @@ impl eframe::App for TemplateApp {
                             self.page_apps = true;
                             self.page_apps_winget = true;
                             ui.close_menu();
-                            self.config.validate();
                         }
 
                         if ui.button("Tokens").clicked()
@@ -140,7 +136,6 @@ impl eframe::App for TemplateApp {
                             self.set_blank();
                             self.page_apps = true;
                             self.page_apps_tokens = true;
-                            self.config.validate();
                             ui.close_menu();
                         }
                     });
@@ -172,7 +167,7 @@ impl eframe::App for TemplateApp {
                     if ui.button("Reload Config").clicked()
                     {
                         ui.close_menu();
-                        self.reload_config();
+                        self.config.validate();
                     }
                 });
 
@@ -284,7 +279,7 @@ impl Default for Config
 {
     fn default() -> Self {
         Self {
-            config: Ini::new(),
+            config: Config::config_load(),
             config_check: Ini::load_from_file("config.ini")
         }
     }
@@ -299,6 +294,17 @@ impl Config
         if self.config_check.is_ok()
         {
             self.config = self.config_check.as_ref().unwrap().clone();
+        }
+    }
+
+    fn config_load() -> Ini
+    {
+        let temp_config = Ini::load_from_file("config.ini");
+        if temp_config.is_ok()
+        {
+            return temp_config.unwrap();
+        } else {
+            return Ini::new();
         }
     }
 }
