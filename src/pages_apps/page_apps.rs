@@ -4,22 +4,21 @@ use std::process::Command;
 
 pub fn page_apps(ui: &mut Ui, config: &Ini)
 {
-    
-    
-
     ui.columns(3, |ui|{
         ui[0].heading("Click to Install Apps");
         egui::ScrollArea::vertical().id_source("InstallApps").show(&mut ui[0], |ui|{
 
             for (key, _) in config
             {
-                if key != None
-                {
-                    if key.unwrap().contains("winget")
-                    {
-                        display_section(ui, key.unwrap(), &config, "winget-")
+
+                match key {
+                    None => {},
+                    section if section.unwrap().contains("winget-") => {
+                        ui.heading(key.unwrap().split("-").last().unwrap());
+                        display(ui, section.unwrap(), config)
                     }
-                }  
+                    _ => {},
+                }
             }
             ui.add_space(20.0);
         });
@@ -29,40 +28,27 @@ pub fn page_apps(ui: &mut Ui, config: &Ini)
         egui::ScrollArea::vertical().id_source("ConfigApps").show(&mut ui[1], |ui|{
             for (key, _) in config
             {
-                if key != None
-                {
-                    if key.unwrap().contains("EXE")
-                    {
-                        if key.unwrap().contains("Local")
-                        {
-                            display_section(ui, key.unwrap(), config, "-")
-                        }
-                        if key.unwrap().contains("Online")
-                        {
-                            display_section(ui, key.unwrap(), config, "-")
-                        }
-                    }
-                    if key.unwrap().contains("MSI")
-                    {
-                        if key.unwrap().contains("Local")
-                        {
-                            display_section(ui, key.unwrap(), config, "-")
-                        }
-                        if key.unwrap().contains("Online")
-                        {
-                            display_section(ui, key.unwrap(), config, "-")
-                        }
-                    }
 
+                match key {
+                    None =>{},
+                    section if section.unwrap().eq("Programs") => {
+                        ui.heading("Programs");
+                        display(ui, section.unwrap(), config)
+                    },
+                    section if section.unwrap().eq("Powershell") => {
+                        ui.heading("Powershell Scripts");
+                        display(ui, section.unwrap(), config)
+                    },
+                    section if section.unwrap().contains("Online") => {
+                        ui.heading(key.unwrap().replace("-", " "));
+                        display(ui, section.unwrap(), config);
+                    },
+                    _ => {
+                        //ui.label(key.unwrap());
+                    },
+                }
 
-
-
-
-
-                }  
             }
-
-
         });
 
         ui[2].heading("Winget Options");
@@ -104,8 +90,7 @@ pub fn page_apps(ui: &mut Ui, config: &Ini)
     });
 }
 
-#[tokio::main]
-async fn launch(app: &str) {
+fn launch(app: &str) {
     Command::new("cmd")
     .arg("/C")
     .arg("start")
@@ -114,8 +99,8 @@ async fn launch(app: &str) {
     .expect("failed to execute process");
 }
 
-#[tokio::main]
-async fn winget_install(app: &str) {
+
+fn winget_install(app: &str) {
     Command::new("cmd")
     .arg("/C")
     .arg("start")
@@ -124,8 +109,7 @@ async fn winget_install(app: &str) {
     .expect("failed to execute process");
 }
 
-#[tokio::main]
-async fn winget_update_all() {
+fn winget_update_all() {
     Command::new("cmd")
     .arg("/C")
     .arg("start")
@@ -134,107 +118,71 @@ async fn winget_update_all() {
     .expect("failed to execute process");
 }
 
-fn exe_local_install(path: &str)
+fn display(ui: &mut Ui, section: &str, config: &Ini)
 {
-    Command::new("cmd")
-    .arg("/C")
-    .arg(path)
-    .spawn()
-    .expect("failed to execute process");  
-}
-
-fn exe_online_install(name: &str, path: &str)
-{
-    let mut new_name = name.to_string();
-    new_name += ".exe";
-    Command::new("curl.exe")
-    .args(["-L", path, "-o",new_name.as_str()])
-    .output()
-    .expect("failed to execute process");
-
-    Command::new("cmd")
-    .arg("/C")
-    .arg(new_name)
-    .spawn()
-    .expect("failed to execute process");
-}
-
-fn msi_local_install(path: &str)
-{
-    Command::new("cmd")
-    .arg("/c")
-    .arg("msiexec")
-    .arg("/i")
-    .arg(path)
-    .spawn()
-    .expect("failed to execute process");  
-}
-
-fn msi_online_install(name: &str, path: &str)
-{
-    let mut new_name = name.to_string();
-    new_name += ".msi";
-    Command::new("curl.exe")
-    .args(["-L", path, "-o",new_name.as_str()])
-    .output()
-    .expect("failed to execute process");
-
-    Command::new("cmd")
-    .arg("/c")
-    .arg("msiexec")
-    .arg("/i")
-    .arg(new_name)
-    .spawn()
-    .expect("failed to execute process"); 
-}
-
-fn display_section(ui: &mut Ui, section: &str, config: &Ini, replace: &str)
-{
-    ui.label(section.replace(replace, " "));
-        
     let properties = config.section(Some(section)).unwrap();
     for (key, value) in properties.iter()
     {
         if ui.add_sized([100.0, 40.0], egui::widgets::Button::new(key)).clicked()
         {
+            match section {
 
-            if replace.eq("winget-")
-            {
-                winget_install(value);
-            } else if replace.eq("-")
-            {
-                if section.contains("EXE")
-                {
-                    if section.contains("Online")
-                    {
-                        exe_online_install(key, value);
-                        println!("{key} {value}");
-                    }
-                    if section.contains("Local")
-                    {
-                        exe_local_install(value);
-                        println!("le {value}");
-                    }
-                }
-
-                if section.contains("MSI")
-                {
-                    if section.contains("Online")
-                    {
-                        msi_online_install(key, value);
-                        println!("om {value}");
-                    }
-                    if section.contains("Local")
-                    {
-                        msi_local_install(value);
-                        println!("lm {value}");
-                    }
-                }
+                section if section.eq("Programs") => {
+                    program_launch(value);
+                },
+                section if section.eq("Powershell") => {
+                    powershell_launch(value);
+                },
+                section if section.contains("-Online") => {
+                    online_install(section, key, value);
+                },
+                section if section.contains("winget-") => {
+                    winget_install(value);
+                },
+                _ => {},
             }
-            
         }
     }
 }
+
+
+fn program_launch(path: &str)
+{
+    Command::new("cmd")
+    .arg("/C")
+    .arg(path)
+    .spawn()
+    .expect("failed to execute process");  
+}
+
+fn powershell_launch(path: &str)
+{
+    Command::new("powershell")
+    .args(["-executionpolicy","bypass","-File",path])
+    .spawn()
+    .expect("failed to execute process");  
+}
+
+fn online_install(section: &str, key: &str, value: &str)
+{
+    let sec = section.to_string();
+    let name = format!("{}.{}",key, sec.split("-").next().unwrap().to_lowercase());
+    let val = value.to_string();
+    std::thread::spawn(move || {
+        Command::new("curl.exe")
+            .args(["-L", val.as_str(), "-o",name.as_str()])
+            .output()
+            .expect("failed to execute process");
+
+        Command::new("cmd")
+            .arg("/c")
+            .arg(name)
+            .spawn()
+            .expect("failed to execute process"); 
+    });
+
+}
+
 
 fn uninstall_defaults()
 {

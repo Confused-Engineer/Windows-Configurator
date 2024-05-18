@@ -4,6 +4,8 @@ use std::env;
 use std::time::Duration;
 use ini::{Error, Ini};
 use crossbeam_channel::{bounded, Receiver, Sender};
+use std::fs::{self, remove_file, File};
+use std::io::Write;
 
 use crate::pages_other::*;
 use crate::pages_settings::*;
@@ -21,6 +23,7 @@ pub struct TemplateApp {
     page_apps: bool,
     page_apps_winget: bool,
     page_apps_tokens: bool,
+    page_config_edit: bool,
     page_troubleshoot: bool,
     page_microsoft_settings: bool,
     page_debug: bool,
@@ -41,6 +44,7 @@ impl Default for TemplateApp {
             page_apps: false,
             page_apps_winget: false,
             page_apps_tokens: false,
+            page_config_edit: false,
             page_microsoft_settings: false,
             page_troubleshoot: false,
             page_debug: false,
@@ -73,6 +77,7 @@ impl TemplateApp {
         self.page_apps = false;
         self.page_apps_winget = false;
         self.page_apps_tokens = false;
+        self.page_config_edit = false;
         self.page_microsoft_settings = false;
         self.page_troubleshoot = false;
         self.page_debug = false;
@@ -136,6 +141,14 @@ impl eframe::App for TemplateApp {
                             self.set_blank();
                             self.page_apps = true;
                             self.page_apps_tokens = true;
+                            ui.close_menu();
+                        }
+
+                        if ui.button("Config").clicked()
+                        {
+                            self.set_blank();
+                            self.page_apps = true;
+                            self.page_config_edit = true;
                             ui.close_menu();
                         }
                     });
@@ -232,6 +245,11 @@ impl eframe::App for TemplateApp {
                     {
                         page_tokens::show_page_tokens(ui, &self.config.config);
                     }
+
+                    if self.page_config_edit
+                    {
+                        page_config_edit::show_page_config_edit(ui, &mut self.config);
+                    }
                 } else if self.config.config_check.is_err() {
                     page_config_error::show_page_config_error(ui, &mut self.config)
                 }
@@ -295,6 +313,75 @@ impl Config
         {
             self.config = self.config_check.as_ref().unwrap().clone();
         }
+    }
+
+    pub fn remove_and_replace(&mut self)
+    {
+        let _ = remove_file("config.ini");
+        let mut filemake = File::create("config.ini").unwrap();
+        let _ = filemake.write_all(include_bytes!("../config.ini"));
+        self.validate();
+    }
+
+    pub fn auto_discover(&mut self)
+    {
+        let filename = env::current_exe().unwrap().as_path().display().to_string().split("\\").last().unwrap().to_string();
+        let paths = fs::read_dir("./").unwrap();
+
+        for path in paths {
+            let path_formatted = path.unwrap().path().display().to_string().replace("./", "");
+            //println!("{}", path.unwrap().path().display().to_string().replace("./", ""));
+            match path_formatted.clone() {
+                //None => {},
+                ignore if ignore.starts_with(".") => {
+                    //println!("ignored: {}", ignore);
+                },
+                folder if !folder.contains(".") => {
+                    //println!("folder: {}", folder);
+                },
+                _myself if filename == path_formatted => {
+                    //println!("Self: {}", myself);
+                },
+                config if config.eq("config.ini") => {
+                    //println!("Config: {}", config);
+                },
+                powershell if powershell.ends_with(".ps1") => {
+                    //println!("Powershell: {}", powershell);
+                    //let mut binding = self.config.with_section(Some("Powershell"));
+                    //let key_exists = binding.get(powershell.split(".").next().unwrap());
+                    
+                    self.config.with_section(Some("Powershell")).set(powershell.split(".").next().unwrap(), powershell.clone());
+                    
+                    
+                },
+                programs if programs.contains(".") => {
+                    //println!("Match: {}", programs);
+                    self.config.with_section(Some("Programs")).set(programs.split(".").next().unwrap(), programs.clone());
+                },
+                
+                _ => {},
+            }
+        }
+        //let _ = self.config.write_to_file("config.ini");
+    }
+
+    pub fn clear_pgr_scripts(&mut self)
+    {
+
+        for (item, _) in self.config.section(Some("Programs")).unwrap().clone().iter()
+        {
+            self.config.with_section(Some("Programs")).delete(&item);
+        }
+        for (item, _) in self.config.section(Some("Powershell")).unwrap().clone().iter()
+        {
+            self.config.with_section(Some("Powershell")).delete(&item);
+        }
+
+    }
+
+    pub fn save_config(&mut self)
+    {
+        let _ = self.config.write_to_file("config.ini");
     }
 
     fn config_load() -> Ini
