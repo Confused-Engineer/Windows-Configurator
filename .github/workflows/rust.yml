@@ -6,7 +6,7 @@ jobs:
   build_and_test:
     name: Rust project
     #runs-on: windows-latest
-    runs-on: truenas-winservervm
+    runs-on: WIN-2P2BN7FLTKN
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
