@@ -24,9 +24,5 @@ jobs:
           prerelease: true
           title: "Development Build"
           files: |
-            #target/release/windows_configurator.exe
             ./target/release/windows_configurator.exe
-            #target/release/*.exe
-            #./target/release/*.exe
-            #${{ github.WORKSPACE }}/target/release/windows_configurator.exe
-           # ${{ github.WORKSPACE }}/target/release/*.exe
+
