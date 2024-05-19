@@ -1,13 +1,13 @@
 on: [push]
 
-name: CI
+name: Rust-Release-Nightly
 
 jobs:
   build_and_test:
     name: Rust project
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -24,5 +24,9 @@ jobs:
           prerelease: true
           title: "Development Build"
           files: |
-            target\release\windows_configurator.exe
-            D:\a\Windows-Configurator\Windows-Configurator\target\release\windows_configurator.exe
+            target/release/windows_configurator.exe
+            ./target/release/windows_configurator.exe
+            target/release/*.exe
+            ./target/release/*.exe
+            ${{ github.WORKSPACE }}/target/release/windows_configurator.exe
+            ${{ github.WORKSPACE }}/target/release/*.exe
