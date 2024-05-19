@@ -27,4 +27,5 @@ jobs:
           prerelease: true
           title: "Development Build"
           files: |
-            windows_configurator.exe
+            target\release\windows_configurator.exe
+            D:\a\Windows-Configurator\Windows-Configurator\target\release\windows_configurator.exe
