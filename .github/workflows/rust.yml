@@ -5,7 +5,8 @@ name: Rust-Release-Nightly
 jobs:
   build_and_test:
     name: Rust project
-    runs-on: windows-latest
+    #runs-on: windows-latest
+    runs-on: truenas-winservervm
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
