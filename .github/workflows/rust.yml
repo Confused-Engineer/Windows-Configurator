@@ -16,7 +16,7 @@ jobs:
           command: build
           args: --release --all-features
 
-      - name: "Build & test"
+      - name: "Upload Release"
         run: |
           echo "done!"
       - uses: "marvinpinto/action-automatic-releases@latest"
