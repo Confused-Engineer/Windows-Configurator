@@ -289,7 +289,8 @@ impl eframe::App for TemplateApp {
 
 pub struct Config
 {
-    config: Ini,
+    pub config: Ini,
+    pub config_copy: Ini,
     config_check: Result<Ini, Error>
 }
 
@@ -298,6 +299,7 @@ impl Default for Config
     fn default() -> Self {
         Self {
             config: Config::config_load(),
+            config_copy: Config::config_load(),
             config_check: Ini::load_from_file("config.ini")
         }
     }
@@ -312,6 +314,7 @@ impl Config
         if self.config_check.is_ok()
         {
             self.config = self.config_check.as_ref().unwrap().clone();
+            self.config_copy = self.config_check.as_ref().unwrap().clone();
         }
     }
 
@@ -381,7 +384,11 @@ impl Config
 
     pub fn save_config(&mut self)
     {
-        let _ = self.config.write_to_file("config.ini");
+        let save = self.config.write_to_file("config.ini");
+        if save.is_ok()
+        {
+            self.config_copy = self.config.clone();
+        }
     }
 
     fn config_load() -> Ini
@@ -394,6 +401,8 @@ impl Config
             return Ini::new();
         }
     }
+
+
 }
 
 
