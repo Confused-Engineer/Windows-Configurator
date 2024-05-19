@@ -15,3 +15,10 @@ jobs:
         with:
           command: build
           args: --release --all-features
+      - name: Release with Notes
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/windows_configurator.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
