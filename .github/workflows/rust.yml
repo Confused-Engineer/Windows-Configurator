@@ -15,8 +15,7 @@ jobs:
           command: build
           args: --release --all-features
 
-      - uses: "marvinpinto/action-automatic-releases@latest"
-      
+      - uses: "dciborow/action-automatic-releases-2@v1.0.1"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "nightly"
