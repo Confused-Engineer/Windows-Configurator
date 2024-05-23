@@ -23,3 +23,7 @@ crossbeam-channel = {version = "0.5.12"}
 [build-dependencies]
 winres = "0.1"
 static_vcruntime = "2.0"
+
+[[bin]]
+name = "Windows_Configurator"
+path = "src/main.rs"

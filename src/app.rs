@@ -85,11 +85,14 @@ impl TemplateApp {
 
     fn restart_admin(&mut self)
     {
+
+        //let path = format!("\"{}\"", env::current_exe().unwrap().display().to_string()).as_str();
         Command::new("powershell")
-            .args(["start-process",env::current_exe().unwrap().as_path().display().to_string().as_str(), "-verb", "runas"])
+            .args(["start-process",format!("\"{}\"", env::current_exe().unwrap().display().to_string()).as_str(), "-verb", "runas"])
             .creation_flags(0x08000000)
             .spawn()
             .expect("failed to execute process");
+        
     }
 
 
