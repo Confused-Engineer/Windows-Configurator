@@ -197,8 +197,7 @@ pub fn show_windows_settings(ui: &mut Ui, win_settings_struct: &mut WindowsSetti
     });
 }
 
-#[tokio::main]
-async fn launch(app: &str) {
+fn launch(app: &str) {
 
     let app_vec: Vec<&str> = app.split(" ").collect();
     if app_vec.len()<2
@@ -221,8 +220,7 @@ async fn launch(app: &str) {
 
 }
 
-#[tokio::main]
-async fn shutdown() {
+fn shutdown() {
     Command::new("cmd")
     .arg("/C")
     .arg("start")
@@ -231,8 +229,7 @@ async fn shutdown() {
     .expect("failed to execute process");
 }
 
-#[tokio::main]
-async fn restart() {
+fn restart() {
     Command::new("cmd")
     .arg("/C")
     .arg("start")
@@ -241,8 +238,7 @@ async fn restart() {
     .expect("failed to execute process");
 }
 
-#[tokio::main]
-async fn restart_bios() {
+fn restart_bios() {
     Command::new("cmd")
     .arg("/C")
     .arg("start")
@@ -251,8 +247,7 @@ async fn restart_bios() {
     .expect("failed to execute process");
 }
 
-#[tokio::main]
-async fn enable_high_perf() {
+fn enable_high_perf() {
     Command::new("cmd")
     .arg("/C")
     .arg("start")
@@ -261,8 +256,7 @@ async fn enable_high_perf() {
     .expect("failed to execute process");
 }
 
-#[tokio::main]
-async fn disable_fast_start() {
+fn disable_fast_start() {
     Command::new("cmd")
     .arg("/C")
     .arg("start")
@@ -271,8 +265,7 @@ async fn disable_fast_start() {
     .expect("failed to execute process");
 }
 
-#[tokio::main]
-async fn never_sleep() {
+fn never_sleep() {
     let vec = ["-disk-timeout-ac", "-standby-timeout-ac","-hibernate-timeout-ac"];
     for x in 0..(vec.len()-1)
     {
@@ -287,8 +280,7 @@ async fn never_sleep() {
 }
 
 
-#[tokio::main]
-async fn vpn_add(win_settings_struct: &mut WindowsSettings, function: &str) {
+fn vpn_add(win_settings_struct: &mut WindowsSettings, function: &str) {
 
     #[allow(unused_assignments)]
     let mut auth_method = String::new();
@@ -310,8 +302,7 @@ async fn vpn_add(win_settings_struct: &mut WindowsSettings, function: &str) {
     .expect("failed to execute process");
 }
 
-#[tokio::main]
-async fn vpn_add_admin(win_settings_struct: &mut WindowsSettings, function: &str) {
+fn vpn_add_admin(win_settings_struct: &mut WindowsSettings, function: &str) {
 
     #[allow(unused_assignments)]
     let mut auth_method = String::new();
@@ -333,8 +324,7 @@ async fn vpn_add_admin(win_settings_struct: &mut WindowsSettings, function: &str
     .expect("failed to execute process");
 }
 
-#[tokio::main]
-async fn vpn_remove() {
+fn vpn_remove() {
 
     Command::new("powershell")
     .args(["Get-VpnConnection","|", "Remove-VpnConnection", "-Force"])
@@ -347,8 +337,7 @@ async fn vpn_remove() {
     .expect("failed to execute process");
 }
 
-#[tokio::main]
-async fn rename_pc(pc_name: &String) {
+fn rename_pc(pc_name: &String) {
     Command::new("cmd")
     .arg("/C")
     .arg("start")

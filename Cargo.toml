@@ -16,7 +16,6 @@ eframe = { version = "0.27.0", default-features = false, features = [
 ] }
 serde = { version = "1", features = ["derive"] }
 env_logger = "0.10"
-tokio = { version = "1.36.0", features = ["full"] }
 rust-ini = "0.19"
 crossbeam-channel = {version = "0.5.12"}
 

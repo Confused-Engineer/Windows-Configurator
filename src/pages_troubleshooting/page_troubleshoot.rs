@@ -65,7 +65,7 @@ pub fn page_troubleshoot(ui: &mut Ui,sys_struct: &mut TroubleshootInfo)
                 }
                 ui[0].horizontal(|ui|{
                     ui.heading("Clear RAM");
-                    ui.small("(Should be Administrator)")
+                    ui.small("(Should be Admin)")
                 });
                 
                 if ui[0].add_sized([100.0, 40.0], egui::widgets::Button::new("Clear RAM") ).clicked()
@@ -75,7 +75,7 @@ pub fn page_troubleshoot(ui: &mut Ui,sys_struct: &mut TroubleshootInfo)
 
                 ui[1].horizontal(|ui|{
                     ui.heading("Set Time to EST");
-                    ui.small("(Need to be Administrator)")
+                    ui.small("(Need Admin)")
                 });
                 
                 if ui[1].add_sized([100.0, 40.0], egui::widgets::Button::new("Set and Sync Time") ).clicked()
