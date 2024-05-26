@@ -19,7 +19,7 @@ pub fn show_page_config_edit(ui: &mut Ui, config: &mut Config)
         {
             config.auto_discover();
         }        
-        if ui[1].add_sized([100.0, 40.0], egui::widgets::Button::new("Clear Programs andPowershell") ).clicked()
+        if ui[1].add_sized([100.0, 40.0], egui::widgets::Button::new("Clear Programs and Powershell") ).clicked()
         {
             config.clear_pgr_scripts();
         }       
