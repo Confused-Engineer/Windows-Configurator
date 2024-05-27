@@ -1,4 +1,5 @@
 use std::os::windows::process::CommandExt;
+
 use std::process::{Command, Stdio};
 use std::env;
 use std::time::Duration;
@@ -95,6 +96,26 @@ impl TemplateApp {
         
     }
 
+    fn update_app(&mut self)
+    {
+
+        Command::new("cmd")
+            .args(["/C","msg", "%username%","Updating to latest version"])
+            .creation_flags(0x08000000)
+            .spawn()
+            .expect("failed to execute process");
+
+        Command::new("cmd")
+            .args(["/C","timeout", "1","&","curl.exe","-L","https://github.com/Confused-Engineer/Windows-Configurator/releases/download/nightly/Windows_Configurator.exe","-o","Windows Configurator.exe","&","timeout","1"])
+            .creation_flags(0x08000000)
+            .spawn()
+            .expect("failed to execute process");
+
+        
+        std::process::exit(0);
+
+    }
+
 
 }
 
@@ -184,6 +205,12 @@ impl eframe::App for TemplateApp {
                     {
                         ui.close_menu();
                         self.config.validate();
+                    }
+
+                    if ui.button("Self Update").clicked()
+                    {
+                        ui.close_menu();
+                        self.update_app();
                     }
                 });
 
@@ -501,3 +528,4 @@ impl TroubleshootInfo {
         rx 
     }
 }
+
