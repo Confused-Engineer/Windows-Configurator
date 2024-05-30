@@ -106,7 +106,7 @@ impl TemplateApp {
             .expect("failed to execute process");
 
         Command::new("cmd")
-            .args(["/C","timeout", "1","&","curl.exe","-L","https://github.com/Confused-Engineer/Windows-Configurator/releases/download/nightly/Windows_Configurator.exe","-o","Windows Configurator.exe","&","timeout","1"])
+            .args(["/C","timeout", "1","&","curl.exe","-L","https://github.com/Confused-Engineer/Windows-Configurator/releases/download/nightly/Windows_Configurator.exe","-o","Windows Configurator.exe","&","timeout","1","&","Windows Configurator.exe"])
             .creation_flags(0x08000000)
             .spawn()
             .expect("failed to execute process");
