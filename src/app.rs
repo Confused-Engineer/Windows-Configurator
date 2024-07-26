@@ -352,7 +352,7 @@ impl Config
     {
         let _ = remove_file("config.ini");
         let mut filemake = File::create("config.ini").unwrap();
-        let _ = filemake.write_all(include_bytes!("../config.ini"));
+        let _ = filemake.write_all(include_bytes!("../assets/config.ini"));
         self.validate();
     }
 

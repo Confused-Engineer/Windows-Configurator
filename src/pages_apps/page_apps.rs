@@ -1,6 +1,6 @@
 use egui::Ui;
 use ini::Ini;
-use std::process::Command;
+use std::{os::windows::process::CommandExt, process::Command};
 
 pub fn page_apps(ui: &mut Ui, config: &Ini)
 {
@@ -151,6 +151,7 @@ fn program_launch(path: &str)
     Command::new("cmd")
     .arg("/C")
     .arg(path)
+    .creation_flags(0x08000000)
     .spawn()
     .expect("failed to execute process");  
 }
