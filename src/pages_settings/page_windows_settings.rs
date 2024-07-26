@@ -29,6 +29,11 @@ pub fn show_windows_settings(ui: &mut Ui, win_settings_struct: &mut WindowsSetti
             {
                 launch("ms-settings:powersleep");
             }
+            ui.label("Sound");
+            if ui.add_sized([100.0, 40.0], egui::widgets::Button::new("Volume Mixer") ).clicked()
+            {
+                launch("ms-settings:apps-volume");
+            }
             ui.label("Apps");
             if ui.add_sized([100.0, 40.0], egui::widgets::Button::new("Installed Apps") ).clicked()
             {
