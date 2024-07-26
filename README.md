@@ -1,4 +1,4 @@
-This is a multi-purpose application meant for Windows configuration, troubleshooting, and maintenance.
+This is a multi-purpose application meant for Windows configuration, troubleshooting, and maintenance. 
 
 Windows Setup Usage Example: 
  - Place the Windows Configurator in a folder on a USB with other executables, Powershell/Batch scripts usaed during setup.
