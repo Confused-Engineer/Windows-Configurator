@@ -17,7 +17,7 @@ use crate::pages_apps::*;
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct TemplateApp {
+pub struct WinConfig {
     // Example stuff:
     
     page_main: bool,
@@ -36,9 +36,12 @@ pub struct TemplateApp {
     config: Config,
     #[serde(skip)]
     sys_struct: TroubleshootInfo,
+
+    #[serde(skip)]
+    assets: Assets
 }
 
-impl Default for TemplateApp {
+impl Default for WinConfig {
     fn default() -> Self {
         Self {
             page_main: true,
@@ -52,12 +55,13 @@ impl Default for TemplateApp {
             config: Config::default(),
             sys_struct: TroubleshootInfo::default(),
             win_settings_struct: WindowsSettings::default(),
+            assets: Assets::default(),
             
         } 
     }
 }
 
-impl TemplateApp {
+impl WinConfig {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
@@ -119,7 +123,7 @@ impl TemplateApp {
 
 }
 
-impl eframe::App for TemplateApp {
+impl eframe::App for WinConfig {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
@@ -291,7 +295,7 @@ impl eframe::App for TemplateApp {
                 ui.heading("Windows Settings");
                 ui.label("Change and Open Common Windows Settings");
                 ui.separator();
-                page_windows_settings::show_windows_settings(ui, &mut self.win_settings_struct);
+                page_windows_settings::show_windows_settings(ui, &mut self.win_settings_struct, &mut self.assets.uri_win_settings, &mut self.assets.control_panel_settings, &mut self.assets.system_commands);
             }
 
             if self.page_troubleshoot
@@ -328,8 +332,8 @@ impl Default for Config
 {
     fn default() -> Self {
         Self {
-            config: Config::config_load(),
-            config_copy: Config::config_load(),
+            config: Ini::load_from_file("config.ini").unwrap_or(Ini::new()),
+            config_copy: Ini::load_from_file("config.ini").unwrap_or(Ini::new()),
             config_check: Ini::load_from_file("config.ini")
         }
     }
@@ -348,12 +352,13 @@ impl Config
         }
     }
 
-    pub fn remove_and_replace(&mut self)
+    pub fn remove_and_replace(&mut self) -> std::io::Result<()>
     {
         let _ = remove_file("config.ini");
-        let mut filemake = File::create("config.ini").unwrap();
+        let mut filemake = File::create("config.ini")?;
         let _ = filemake.write_all(include_bytes!("../assets/config.ini"));
         self.validate();
+        Ok(())
     }
 
     pub fn auto_discover(&mut self)
@@ -420,18 +425,6 @@ impl Config
             self.config_copy = self.config.clone();
         }
     }
-
-    fn config_load() -> Ini
-    {
-        let temp_config = Ini::load_from_file("config.ini");
-        if temp_config.is_ok()
-        {
-            return temp_config.unwrap();
-        } else {
-            return Ini::new();
-        }
-    }
-
 
 }
 
@@ -529,3 +522,20 @@ impl TroubleshootInfo {
     }
 }
 
+pub struct Assets
+{
+    uri_win_settings: Ini,
+    control_panel_settings: Ini,
+    system_commands: Ini,
+
+}
+
+impl Default for Assets {
+    fn default() -> Self {
+        Self {
+            uri_win_settings: Ini::load_from_str(include_str!("../assets/resources/buttons/win_settings")).unwrap(),
+            control_panel_settings: Ini::load_from_str(include_str!("../assets/resources/buttons/control_panel_settings")).unwrap(),
+            system_commands: Ini::load_from_str(include_str!("../assets/resources/buttons/commands")).unwrap()
+        }
+    }
+}

@@ -1,0 +1,10 @@
+[System]
+Shutdown=shutdown /s /t 10
+Restart=shutdown /r /t 10
+Restart to BIOS=shutdown /r /fw /t 10
+
+[Power]
+Enable High Performance=powercfg -SETACTIVE 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
+Disable Fast Startup=powercfg /h off
+Disable Sleep=powercfg -x standby-timeout-ac 0
+Disable Hibernate=powercfg -x -hibernate-timeout-ac 0

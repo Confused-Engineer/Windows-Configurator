@@ -1,0 +1,28 @@
+[General]
+About Machine=ms-settings:about
+Windows Updates=ms-settings:windowsupdate
+Work Or School=ms-settings:workplace
+Date and Time=ms-settings:dateandtime
+Power and Sleep=ms-settings:powersleep
+
+[Sound]
+Volume Mixer=ms-settings:apps-volume
+
+[Apps]
+Installed Apps=ms-settings:appsfeatures
+Default Apps=ms-settings:defaultapps
+Startup Apps=ms-settings:startupapps
+
+[Network]
+Airplane Mode=ms-settings:network-airplanemode
+Ethernet=ms-settings:network-ethernet
+Wi-Fi=ms-settings:network-wifi
+VPN=ms-settings:network-vpn
+
+[Personalization]
+Taskbar=ms-settings:taskbar
+Themes=ms-settings:themes
+
+
+[Misc]
+Workplace Repair Token=ms-settings:workplace-repairtoken

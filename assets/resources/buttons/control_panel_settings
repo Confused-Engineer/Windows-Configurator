@@ -1,0 +1,6 @@
+[General]
+Add/Remove Programs=appwiz.cpl
+Sounds=mmsys.cpl
+Power=powercfg.cpl
+Network Adapters=Ncpa.cpl
+Scheduled Tasks=control schedtasks
