@@ -88,7 +88,6 @@ fn launch(command: &str) {
     }
     command.creation_flags(0x08000000);
     let _ = command.spawn().expect("failed to execute process");
-    
 }
 
 fn vpn_add(win_settings_struct: &mut WindowsSettings, function: &str, as_admin: bool) {

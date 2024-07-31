@@ -332,9 +332,9 @@ impl Default for Config
 {
     fn default() -> Self {
         Self {
-            config: Ini::load_from_file("config.ini").unwrap_or(Ini::new()),
-            config_copy: Ini::load_from_file("config.ini").unwrap_or(Ini::new()),
-            config_check: Ini::load_from_file("config.ini")
+            config: Ini::load_from_file_noescape("config.ini").unwrap_or(Ini::new()),
+            config_copy: Ini::load_from_file_noescape("config.ini").unwrap_or(Ini::new()),
+            config_check: Ini::load_from_file_noescape("config.ini")
         }
     }
 }
@@ -344,7 +344,7 @@ impl Config
     pub fn validate(&mut self)
     {
         
-        self.config_check = Ini::load_from_file("config.ini");
+        self.config_check = Ini::load_from_file_noescape("config.ini");
         if self.config_check.is_ok()
         {
             self.config = self.config_check.as_ref().unwrap().clone();
@@ -419,7 +419,7 @@ impl Config
 
     pub fn save_config(&mut self)
     {
-        let save = self.config.write_to_file("config.ini");
+        let save = self.config.write_to_file_policy("config.ini", ini::EscapePolicy::Nothing);
         if save.is_ok()
         {
             self.config_copy = self.config.clone();
