@@ -23,6 +23,5 @@ VPN=ms-settings:network-vpn
 Taskbar=ms-settings:taskbar
 Themes=ms-settings:themes
 
-
 [Misc]
 Workplace Repair Token=ms-settings:workplace-repairtoken

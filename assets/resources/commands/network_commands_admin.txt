@@ -1,0 +1,11 @@
+[IP Config]
+ReRegister DNS = ipconfig /registerdns
+Release = ipconfig /release
+Renew = ipconfig /renew
+
+[Winsock]
+Reset Manually Restart to Finish = netsh winsock reset
+
+[Windows Firewall]
+Turn of Firewall = powershell Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+Turn on Firewall = powershell Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True

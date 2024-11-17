@@ -3,8 +3,7 @@
 // When compiling natively:
 
 fn main() -> eframe::Result<()> {
-
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    let _ = davids_awesome_library::env::set_exe_dir();
 
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -17,6 +16,7 @@ fn main() -> eframe::Result<()> {
             ),
         ..Default::default()
     };
+
     eframe::run_native(
         "Windows Configurator",
         native_options,
