@@ -1,3 +1,5 @@
+use std::os::windows::process::CommandExt;
+
 use serde::{Deserialize, Serialize};
 
 
@@ -5,10 +7,13 @@ use serde::{Deserialize, Serialize};
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct Configurator {
-    // #[serde(skip)]
+    //#[serde(skip)]
     page: AppPage,
     #[serde(skip)]
     pub running_as_admin: bool,
+
+    #[serde(skip)]
+    pub close_app: bool,
 
     #[serde(skip)]
     multithreading_started: bool,
@@ -48,14 +53,27 @@ pub struct Configurator {
     pub traceroute: String,
     pub nslookup: String,
 
+    #[serde(skip)]
+    pub vpn_name: String,
+    #[serde(skip)]
+    pub vpn_addr: String,
+    #[serde(skip)]
+    pub vpn_key: String,
+    #[serde(skip)]
+    pub vpn_view_key: bool,
+    #[serde(skip)]
+    pub pc_name: String,
+
 }
 
 impl Default for Configurator {
     fn default() -> Self {
         Self {
-            page: AppPage::Main(SubPage::First),
-            running_as_admin: is_admin(),
 
+            page: AppPage::Main(SubPage::First),
+            
+            running_as_admin: is_admin(),
+            close_app: false,
             multithreading_started: false,
 
             winget_app_search: String::new(),
@@ -84,6 +102,13 @@ impl Default for Configurator {
             ping: String::new(),
             traceroute: String::new(),
             nslookup: String::new(),
+
+            vpn_name: String::new(),
+            vpn_addr: String::new(),
+            vpn_key: String::new(),
+            vpn_view_key: false,
+
+            pc_name: String::new(),
         } 
     }
 }
@@ -151,6 +176,25 @@ impl eframe::App for Configurator {
         {
             self.start_multithread();
             self.multithreading_started = true;
+        }
+
+        if self.close_app
+        {
+            std::process::Command::new("cmd")
+                .args(["/C","msg", "%username%","Updating to latest version"])
+                .creation_flags(0x08000000)
+                .spawn()
+                .expect("failed to execute process");
+
+            let _ = std::process::Command::new("cmd")
+                .args(["/C","timeout", "1","&","curl.exe","-L","https://github.com/Confused-Engineer/Windows-Configurator/releases/download/nightly/Windows_Configurator.exe","-o","Windows Configurator.exe","&","timeout","1","&","Windows Configurator.exe"])
+                .creation_flags(0x08000000)
+                .spawn()
+                .expect("failed to execute process");
+
+            
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            self.close_app = false;
         }
 
         self.unpack_multithread();

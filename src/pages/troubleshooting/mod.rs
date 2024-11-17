@@ -114,109 +114,14 @@ impl Configurator
 
                 if self.running_as_admin | cfg!(debug_assertions)
                 {
+                    ui.add_space(5.0);
                     ui.heading("Admin Options:");
                     ui.separator();
-                    ui.horizontal(|ui| {
-                        ui.label("IP Re-Register DNS Names");     
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-    
-                            ui.add_space(10.0);
-    
-                            if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                            .frame(false)
-                            .tint(egui::Color32::GREEN))
-                            .clicked()
-                            {
-                                program_launch("ipconfig /registerdns");
-                            }
-                        });
-                    });
-                    ui.separator();
 
-                    ui.horizontal(|ui| {
-                        ui.label("IP Config Release");     
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-    
-                            ui.add_space(10.0);
-    
-                            if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                            .frame(false)
-                            .tint(egui::Color32::GREEN))
-                            .clicked()
-                            {
-                                program_launch("ipconfig /release");
-                            }
-                        });
-                    });
-                    ui.separator();
-
-                    ui.horizontal(|ui| {
-                        ui.label("IP Config Renew");     
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-    
-                            ui.add_space(10.0);
-    
-                            if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                            .frame(false)
-                            .tint(egui::Color32::GREEN))
-                            .clicked()
-                            {
-                                program_launch("ipconfig /renew");
-                            }
-                        });
-                    });
-                    ui.separator();
-
-                    ui.horizontal(|ui| {
-                        ui.label("Winsock Reset (Requires Manual Restart)");     
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-    
-                            ui.add_space(10.0);
-    
-                            if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                            .frame(false)
-                            .tint(egui::Color32::GREEN))
-                            .clicked()
-                            {
-                                program_launch("netsh winsock reset");
-                            }
-                        });
-                    });
-                    ui.separator();
-
-                    ui.horizontal(|ui| {
-                        ui.label("Turn On Windows Firewall");     
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-    
-                            ui.add_space(10.0);
-    
-                            if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                            .frame(false)
-                            .tint(egui::Color32::GREEN))
-                            .clicked()
-                            {
-                                program_launch("powershell Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True");
-                            }
-                        });
-                    });
-                    ui.separator();
-
-                    ui.horizontal(|ui| {
-                        ui.label("Turn Off Windows Firewall");     
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-    
-                            ui.add_space(10.0);
-    
-                            if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                            .frame(false)
-                            .tint(egui::Color32::GREEN))
-                            .clicked()
-                            {
-                                program_launch("powershell Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False");
-                            }
-                        });
-                    });
-                    ui.separator();
+                    if let Ok(config) = ini::Ini::load_from_str(include_str!("../../../assets/resources/commands/network_commands_admin.ini"))
+                    {
+                        display_config(config, ui);
+                    }
                 }
             });
 
@@ -228,26 +133,19 @@ impl Configurator
                 {
                     ui.heading("Admin Options");
                     ui.separator();
-                    ui.horizontal(|ui| {
-                        ui.label("Free Excess RAM");     
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-    
-                            ui.add_space(10.0);
-    
-                            if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                            .frame(false)
-                            .tint(egui::Color32::GREEN))
-                            .on_hover_text("Free RAM")
-                            .clicked()
-                            {
-                                program_launch_hidden("powershell -windowstyle hidden -EncodedCommand PAAjAA0ACgAgACAAIAAgAC4AUwBZAE4ATwBQAFMASQBTAA0ACgAgACAAIAAgAFQAaABpAHMAIAB0AG8AbwBsACAAdQBzAGUAcwAgAGEAIABwAHIAbwBnAHIAYQBtACAAbwBmAGYAZQByAGUAZAAgAGIAeQAgAG0AaQBjAHIAbwBzAG8AZgB0ACAAdABvACAAYwBsAGUAYQByACAAUgBBAE0AIAB3AGkAdABoAG8AdQB0ACAAYQAgAHIAZQBiAG8AbwB0ACAAbwByACAAdQBzAGUAcgAgAGkAbgB0AGUAcgBhAGMAdABpAG8AbgANAAoADQAKAA0ACgAgACAAIAAgAC4ARABFAFMAQwBSAEkAUABUAEkATwBOAA0ACgAgACAAIAAgAFIAQQBNAE0AYQBwAC4AZQB4AGUAIABpAHMAIABkAG8AdwBuAGwAbwBhAGQAZQBkACAAZgByAG8AbQAgAGgAdAB0AHAAcwA6AC8ALwBsAGkAdgBlAC4AcwB5AHMAaQBuAHQAZQByAG4AYQBsAHMALgBjAG8AbQAvAFIAQQBNAE0AYQBwAC4AZQB4AGUAIAB3AGgAaQBjAGgAIABpAHMAIABvAHcAbgBlAGQAIABhAG4AZAAgAG8AcABlAHIAYQB0AGUAZAAgAGIAeQAgAE0AaQBjAHIAbwBzAG8AZgB0ACAAYQBuAGQAIABvAGYAZgBlAHIAcwAgAGMAbwBtAG0AYQBuAGQAIABsAGkAbgBlACAAbwBwAHQAaQBvAG4AcwAgAHQAbwAgAGMAbABlAGEAcgAgAFIAQQBNAC4ADQAKACAAIAAgACAAQgB5ACAAZABvAHcAbgBsAG8AYQBkAGkAbgBnACAAaQB0ACAAdABvACAAYQAgAGQAaQByAGUAYwB0AG8AcgB5ACAAYQBuAGQAIAByAHUAbgBuAGkAbgBnACAAaQB0ACAAYQBzACAAYQBkAG0AaQBuAGkAcwB0AHIAYQB0AG8AcgAgAHcAZQAgAGEAcgBlACAAYQBiAGwAZQAgAHQAbwAgAGMAbABlAGEAcgAgAG8AdQB0ACAAUgBBAE0AIAB3AGkAdABoAG8AdQB0ACAAYQBuAHkAIAB1AHMAZQByACAAaQBuAHQAZQByAGEAYwB0AGkAbwBuACAAbwByACAAaQBuAHQAZQByAHUAcAB0AGkAbwBuAHMALgANAAoADQAKACMAPgANAAoADQAKACMAVgBhAHIAaQBhAGIAbABlAHMADQAKAA0ACgAkAFcAZQBiAEYAaQBsAGUAIAA9ACAAJwBoAHQAdABwAHMAOgAvAC8AbABpAHYAZQAuAHMAeQBzAGkAbgB0AGUAcgBuAGEAbABzAC4AYwBvAG0ALwBSAEEATQBNAGEAcAAuAGUAeABlACcADQAKACQATABvAGMAYQBsAEYAaQBsAGUAIAA9ACAAJwBDADoAXAB0AGUAbQBwAFwAUgBBAE0ATQBhAHAALgBlAHgAZQAnAA0ACgAkAEEAcgBnAEwAaQBzAHQAIAA9ACAAQAAoACIALQBFAHcAIgAsACIALQBFAHMAIgAsACIALQBFAG0AIgAsACIALQBFAHQAIgAsACIALQBFADAAIgApAA0ACgANAAoAJABSAGUAZwBQAGEAdABoACAAPQAgACIASABLAEMAVQA6AFwAUwBvAGYAdAB3AGEAcgBlAFwAUwB5AHMAaQBuAHQAZQByAG4AYQBsAHMAXABSAEEATQBNAGEAcAAiAA0ACgAkAFIAZQBnAEkAdABlAG0AIAA9ACAAIgBFAHUAbABhAEEAYwBjAGUAcAB0AGUAZAAiAA0ACgAkAFIAZQBnAFYAYQBsAHUAZQAgAD0AIAAxAA0ACgANAAoADQAKACMATQBhAGsAZQAgAFQAZQBtAHAAIABmAG8AbABkAGUAcgAgAGkAZgAgAGkAdAAgAGQAbwBlAHMAbgB0ACAAZQB4AGkAcwB0AA0ACgANAAoATgBlAHcALQBJAHQAZQBtACAALQBJAHQAZQBtAFQAeQBwAGUAIABEAGkAcgBlAGMAdABvAHIAeQAgAC0AUABhAHQAaAAgACIAQwA6AFwAdABlAG0AcAAiACAALQBFAHIAcgBvAHIAQQBjAHQAaQBvAG4AIABTAGkAbABlAG4AdABsAHkAQwBvAG4AdABpAG4AdQBlAA0ACgANAAoAIwBkAG8AdwBuAGwAbwBhAGQAIABuAGUAZQBkAGUAZAAgAHAAcgBvAGcAcgBhAG0ADQAKAA0ACgBJAG4AdgBvAGsAZQAtAFcAZQBiAFIAZQBxAHUAZQBzAHQAIAAtAFUAcgBpACAAJABXAGUAYgBGAGkAbABlACAALQBPAHUAdABGAGkAbABlACAAJABMAG8AYwBhAGwARgBpAGwAZQANAAoADQAKACMAQQBkAGQAIAByAGUAZwBpAHMAdAByAHkAIAB2AGEAbAB1AGUAIABzAG8AIAB0AGgAZQAgAEUAVQBMAEEAIABkAG8AZQBzACAAbgBvAHQAIABwAG8AcAAgAHUAcAAgAGYAbwByACAAdQBzAGUAcgAsACAAbgBlAGUAZABlAGQAIAB0AGgAZQAgAHMAbABlAGUAcAAgAHMAbwAgAHQAaABlACAAcgBlAGcAaQBzAHQAcgB5ACAAYwBhAG4AIABjAGwAbwBzAGUAIABiAGUAZgBvAHIAZQAgAFIAQQBNAE0AYQBwACAAdAByAGkAZQBzACAAdABvACAAYwBoAGUAYwBrACAAaQB0ACAAKABJACAAdABoAGkAbgBrACkADQAKAGkAZgAoACgAKABHAGUAdAAtAEkAdABlAG0AUAByAG8AcABlAHIAdAB5ACAALQBQAGEAdABoACAAJABSAGUAZwBQAGEAdABoACAALQBOAGEAbQBlACAAJABSAGUAZwBJAHQAZQBtACAALQBFAHIAcgBvAHIAQQBjAHQAaQBvAG4AIABTAGkAbABlAG4AdABsAHkAQwBvAG4AdABpAG4AdQBlACkALgAkAFIAZQBnAEkAdABlAG0AKQAgAC0AbgBlACAAJABSAGUAZwBWAGEAbAB1AGUAKQAgACAAewANAAoADQAKACAAIAAgACAATgBlAHcALQBJAHQAZQBtACAALQBQAGEAdABoACAAJABSAGUAZwBQAGEAdABoACAALQBGAG8AcgBjAGUAIAB8ACAATwB1AHQALQBOAHUAbABsAA0ACgAgACAAIAAgAE4AZQB3AC0ASQB0AGUAbQBQAHIAbwBwAGUAcgB0AHkAIAAtAFAAYQB0AGgAIAAkAFIAZQBnAFAAYQB0AGgAIAAtAE4AYQBtAGUAIAAkAFIAZQBnAEkAdABlAG0AIAAtAFYAYQBsAHUAZQAgACQAUgBlAGcAVgBhAGwAdQBlACAALQBQAHIAbwBwAGUAcgB0AHkAVAB5AHAAZQAgAEQAVwBPAFIARAAgAC0ARgBvAHIAYwBlACAAfAAgAE8AdQB0AC0ATgB1AGwAbAANAAoADQAKAH0ADQAKAA0ACgBTAHQAYQByAHQALQBTAGwAZQBlAHAAIAAtAFMAZQBjAG8AbgBkAHMAIAAxAA0ACgANAAoADQAKACMAUwB0AGEAcgB0ACAAZQBhAGMAaAAgAGEAbgBkACAAdABoAGUAbgAgAHMAbABlAGUAcAAgAGYAbwByACAAWAAgAHMAZQBjAG8AbgBkAHMAIAB0AG8AIABhAHYAbwBpAGQAIAAiAHIAcABvAGMAZQBzAHMAIABiAGUAaQBuAGcAIAB1AHMAZQBkACAAYgB5ACAAYQBuAG8AdABoAGUAcgAgAHAAcgBvAGcAcgBhAG0AIgAgAGUAcgByAG8AcgANAAoAZgBvAHIAZQBhAGMAaAAgACgAJABBAHIAZwAgAGkAbgAgACQAQQByAGcATABpAHMAdAApAHsADQAKACAAIAAgACAAJgAgACIAJABMAG8AYwBhAGwARgBpAGwAZQAiACAAQAAoACIAJABBAHIAZwAiACkADQAKACAAIAAgACAAUwB0AGEAcgB0AC0AUwBsAGUAZQBwACAAMgAwAA0ACgB9AA0ACgANAAoADQAKACMAYwBvAG0AbQBlAG4AdABlAGQAIABvAHUAdAAgAGIAdQB0ACAAdABoAGkAcwAgAGkAcwAgAHcAaABhAHQAIABpAHMAIABuAGUAZQBkAGUAZAAgAHQAbwAgAHMAaABvAHcAIABjAG8AbQBtAGEAbgBkACAAbABpAG4AZQAgAGEAcgBnAHUAbQBlAG4AdABzAA0ACgAjACYAIAAiACQATABvAGMAYQBsAEYAaQBsAGUAIgAgAEAAKAAiAC0ALQBoAGUAbABwACIAKQA=");
-                            }
-                        });
-                    });
-                    ui.separator();
+                    if let Ok(config) = ini::Ini::load_from_str(include_str!("../../../assets/resources/commands/troubleshooting_commands_hidden.ini"))
+                    {
+                        display_config_hidden(config, ui);
+                    }
+                    //ui.separator();
+                    if let Ok(config) = ini::Ini::load_from_str(include_str!("../../../assets/resources/commands/troubleshooting_commands.ini"))
+                    {
+                        display_config(config, ui);
+                    }
                 }
                 
-                ui.label("commands in resources");
+
+                
             });
         });
         
@@ -310,4 +208,76 @@ fn program_launch_hidden(command: &str) {
     }
     command.creation_flags(0x08000000);
     let _ = command.spawn();
+}
+
+fn display_config(config: ini::Ini, ui: &mut egui::Ui)
+{
+    for section in config.sections()
+    {
+        if section.is_none() { continue; }
+        let section = section.unwrap();
+        ui.heading(section);
+        ui.separator();
+        if let Some(properties) = config.section(Some(section))
+        {
+            for (key, val) in properties
+            {
+                ui.horizontal(|ui| {
+                    ui.label(key);
+                            
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+
+                        ui.add_space(10.0);
+
+                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                        .frame(false)
+                        .tint(egui::Color32::GREEN))
+                        .clicked()
+                        {
+                            program_launch(val);
+                        }
+                    });
+                });
+                ui.separator();
+            }
+        }
+
+
+    }
+}
+
+fn display_config_hidden(config: ini::Ini, ui: &mut egui::Ui)
+{
+    for section in config.sections()
+    {
+        if section.is_none() { continue; }
+        let section = section.unwrap();
+        ui.heading(section);
+        ui.separator();
+        if let Some(properties) = config.section(Some(section))
+        {
+            for (key, val) in properties
+            {
+                ui.horizontal(|ui| {
+                    ui.label(key);
+                            
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+
+                        ui.add_space(10.0);
+
+                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                        .frame(false)
+                        .tint(egui::Color32::GREEN))
+                        .clicked()
+                        {
+                            program_launch_hidden(val);
+                        }
+                    });
+                });
+                ui.separator();
+            }
+        }
+
+
+    }
 }
