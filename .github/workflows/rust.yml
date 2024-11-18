@@ -3,23 +3,51 @@ on: [push]
 name: Rust-Release-Nightly
 
 jobs:
-  build_and_test:
-    name: Rust project
-    #runs-on: windows-latest
-    runs-on: [self-hosted, windows]
+
+  build_windows_exe:
+    name: Rust Build Windows EXE
+    runs-on: windows
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all-features
+      - name: build
+        run: |
+          cargo build --release
 
-      - uses: "marvinpinto/action-automatic-releases@latest"
+      - name: Temporarily Save File
+        uses: actions/upload-artifact@v4
+        with:
+          name: exe
+          path: ./target/release/Windows_Configurator.exe
+          retention-days: 1
+      - name: cleanup
+        run: |
+          cargo clean
+
+
+
+  publish_release:
+    name: Publish Files
+    runs-on: windows
+    needs: ["build_windows_exe"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Get Files
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          merge-multiple: true
+
+      - uses: "ModeSevenIndustrialSolutions/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "nightly"
           prerelease: true
-          title: "Development Build"
+          title: "Dev Build"
           files: |
-            ./target/release/Windows_Configurator.exe
+            ./artifacts/Windows_Configurator.exe
+
+
+
 
