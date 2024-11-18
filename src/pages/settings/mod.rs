@@ -155,26 +155,32 @@ impl Configurator
                 ui.separator();
                 ui.horizontal(|ui| {
                     //todo textbox
-                    ui.heading("Start as Admin");
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-
-                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                            .frame(false)
-                            .tint(egui::Color32::GREEN))
-                            .on_hover_text("Launches another instance as admin")
-                            .clicked()
-                        {
-                            if let Ok(exe_path) = std::env::current_exe()
+                    if !self.running_as_admin
+                    {
+                        ui.heading("Start as Admin");
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+    
+                            if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                                .frame(false)
+                                .tint(egui::Color32::GREEN))
+                                .on_hover_text("Launches another instance as admin")
+                                .clicked()
                             {
-                                let _ = std::process::Command::new("powershell")
-                                .args(["start-process", &format!("\"{}\"", exe_path.display()), "-verb", "runas"])
-                                .creation_flags(0x08000000)
-                                .spawn();
+                                if let Ok(exe_path) = std::env::current_exe()
+                                {
+                                    let _ = std::process::Command::new("powershell")
+                                    .args(["start-process", &format!("\"{}\"", exe_path.display()), "-verb", "runas"])
+                                    .creation_flags(0x08000000)
+                                    .spawn();
+                                }
+                                
                             }
-                            
-                        }
-
-                    });
+    
+                        });
+                    } else {
+                        ui.heading("Running as Admin");
+                    }
+                    
                 });
             });
         });

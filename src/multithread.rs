@@ -5,7 +5,7 @@ impl Configurator
 {
     pub fn start_multithread(&mut self)
     {
-        if let Err(_) = std::process::Command::new("winget").args(["search", "7-zip"]).spawn()
+        if let Err(_) = std::process::Command::new("winget").args(["search", "7-zip"]).creation_flags(0x08000000).spawn()
         {
             let _ = std::process::Command::new("powershell")
             .args(["Add-AppxPackage", "-RegisterByFamilyName", "-MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe"])

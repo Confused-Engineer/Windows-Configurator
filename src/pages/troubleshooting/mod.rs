@@ -114,9 +114,7 @@ impl Configurator
 
                 if self.running_as_admin | cfg!(debug_assertions)
                 {
-                    ui.add_space(5.0);
-                    ui.heading("Admin Options:");
-                    ui.separator();
+
 
                     if let Ok(config) = ini::Ini::load_from_str(include_str!("../../../assets/resources/commands/network_commands_admin.ini"))
                     {
@@ -131,8 +129,7 @@ impl Configurator
                 
                 if self.running_as_admin | cfg!(debug_assertions)
                 {
-                    ui.heading("Admin Options");
-                    ui.separator();
+
                     if let Ok(config) = ini::Ini::load_from_str(include_str!("../../../assets/resources/commands/troubleshooting_commands_hidden.ini"))
                     {
                         display_config_hidden(config, ui);
