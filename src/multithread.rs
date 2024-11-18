@@ -5,6 +5,19 @@ impl Configurator
 {
     pub fn start_multithread(&mut self)
     {
+        if let Err(_) = std::process::Command::new("winget").spawn()
+        {
+            let _ = std::process::Command::new("powershell")
+            .args(["Add-AppxPackage", "-RegisterByFamilyName", "-MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe"])
+            .creation_flags(0x08000000)
+            .spawn();
+
+            let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", "ms-windows-store://pdp/?ProductId=9NBLGGH4NNS1"])
+            .creation_flags(0x08000000)
+            .spawn();
+            
+        }
         // Winget
         let tx = self.multithread_wingetlist.0.clone();
         std::thread::spawn(move || {
