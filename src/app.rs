@@ -124,12 +124,12 @@ impl Configurator {
         let visuals = egui::Visuals
         {
             dark_mode: true,
-            //override_text_color: todo!(),
+            override_text_color: Some(egui::Color32::from_rgb(253, 255, 230)),
             //widgets: todo!(),
-            //faint_bg_color: todo!(),
-            //extreme_bg_color: todo!(),/
-            //window_fill: todo!(),
-            //panel_fill: todo!(),
+            faint_bg_color: egui::Color32::LIGHT_GRAY, //button bg
+            extreme_bg_color: egui::Color32::from_rgb(24, 45, 00), //textedit bg
+            //window_fill: egui::Color32::DARK_BLUE,
+            panel_fill: egui::Color32::from_rgb(3, 00, 15),
             image_loading_spinners: true,
             ..Default::default()
         };
@@ -180,17 +180,15 @@ impl eframe::App for Configurator {
 
         if self.close_app
         {
-            std::process::Command::new("cmd")
+            let _ = std::process::Command::new("cmd")
                 .args(["/C","msg", "%username%","Updating to latest version"])
                 .creation_flags(0x08000000)
-                .spawn()
-                .expect("failed to execute process");
+                .spawn();
 
             let _ = std::process::Command::new("cmd")
-                .args(["/C","timeout", "1","&","curl.exe","-L","https://github.com/Confused-Engineer/Windows-Configurator/releases/download/nightly/Windows_Configurator.exe","-o","Windows Configurator.exe","&","timeout","1","&","Windows Configurator.exe"])
+                .args(["/C","timeout", "2","&","curl.exe","-L","https://github.com/Confused-Engineer/Windows-Configurator/releases/download/nightly/Windows_Configurator.exe","-o","Windows Configurator.exe","&","timeout","1","&","Windows Configurator.exe"])
                 .creation_flags(0x08000000)
-                .spawn()
-                .expect("failed to execute process");
+                .spawn();
 
             
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -348,7 +346,7 @@ fn source(ui: &mut egui::Ui)
 }
 
 const SIDE_BUTTON_SIZE: [f32; 2] = [50.0,50.0];
-const SIDE_BUTTON_COLOR: egui::Color32 = egui::Color32::GOLD;
+const SIDE_BUTTON_COLOR: egui::Color32 = egui::Color32::DARK_BLUE;
 const SIDE_PANEL_WIDTH: f32 = 65.0;
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Copy)]
