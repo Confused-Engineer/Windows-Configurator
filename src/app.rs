@@ -172,6 +172,10 @@ impl eframe::App for Configurator {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.style_mut(|style| {
+            style.visuals.dark_mode = true;
+        });
+        ctx.request_repaint();
         if !self.multithreading_started
         {
             self.start_multithread();

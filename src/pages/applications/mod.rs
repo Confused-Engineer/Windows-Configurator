@@ -124,6 +124,28 @@ impl Configurator
             ui[2].heading("Others");
             ui[2].separator();
             egui::ScrollArea::vertical().id_salt("app_winget_right").show(&mut ui[2], |ui| {
+                ui.heading("Winget");
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    ui.label("Update All Applications");
+                    
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                        ui.add_space(10.0);
+
+                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/upload-outline.svg"))
+                        .frame(false)
+                        .tint(egui::Color32::GREEN))
+                        .on_hover_text("Update any app winget can upgrade, regardless if it was installed with winget")
+                        .clicked()
+                        {
+                            winget_update_all_silent();
+                        }
+                    });
+                });
+
+                ui.separator();
+                
                 for section in self.config.sections()
                 {
                     if section.is_none() { continue; };
@@ -220,6 +242,13 @@ fn winget_install_silent(app_id: String)
     let _ = std::process::Command::new("winget")
         .args(["install", &app_id,"--accept-source-agreements","--accept-package-agreements","--silent"])
         .creation_flags(0x08000000)
+        .spawn();
+}
+
+fn winget_update_all_silent()
+{
+    let _ = std::process::Command::new("winget")
+        .args(["update", "--all","--accept-source-agreements","--accept-package-agreements","--silent", "--include-unknown"])
         .spawn();
 }
 
