@@ -1,3 +1,5 @@
+use std::io::Error;
+
 
 
 #[cfg(test)]
@@ -7,6 +9,8 @@ mod tests
         core::*, Win32::Foundation::*, Win32::Security::*, Win32::System::Memory::*,
         Win32::System::Threading::*,
     };
+
+    use super::Winget;
 
     
 
@@ -82,6 +86,7 @@ mod tests
         stringvec.remove(0);
         stringvec.pop();
         
+        let mut winget: Vec<Winget> = Vec::new();
         for line in stringvec {
             
             //println!("{}", line);
@@ -89,23 +94,19 @@ mod tests
             
             let reverse: Vec<&str> = split.iter().copied().rev().collect();
             
-            println!("Version: {}", reverse[1]);
-            println!("ID: {}", reverse[2]);
-
             
-
-            let mut string = String::new();
-            for x in 3..reverse.len()
+            if let Ok(out) = Winget::new(reverse)
             {
-                
-
-                string = format!("{} ", reverse[x]) + &string;
+                winget.push(out);
             }
-            println!("Name: {}", string);
             //println!("Name Rev: {:#?}", reverse[3]);
         }
 
         
+        for item in winget
+        {
+            println!("{}", item.name)
+        }
     
         // Remove trailing '\n'
         
@@ -157,4 +158,42 @@ mod tests
         }
     }
 
+}
+
+type WinList = Vec<Winget>;
+
+#[derive(Debug, Clone)]
+struct Winget
+{
+    name: String,
+    id: String,
+    version: String,
+}
+
+impl Winget
+{
+    fn new(item: Vec<&str>) -> std::io::Result<Self>
+    {
+        if item.len() < 4 { return Err(Error::new(std::io::ErrorKind::InvalidData, "Not enough elements"))}
+        
+        let version = item[1].to_owned();
+        let id = item[2].to_owned();
+
+        let mut string = String::new();
+        for x in 3..item.len()
+        {
+            
+
+            string = format!("{} ", item[x]) + &string;
+        }
+        let name = string;
+
+
+        Ok(Self { name: name, id: id, version: version })
+    }
+
+    fn get_name(&mut self) -> String
+    {
+        self.name.clone()
+    }
 }

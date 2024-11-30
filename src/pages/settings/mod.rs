@@ -3,6 +3,8 @@ use std::os::windows::process::CommandExt;
 use crate::Configurator;
 use eframe::egui;
 
+const BUTTON_SIZE: [f32; 2] = [25.0, 25.0];
+
 impl Configurator
 {
     pub fn page_settings_first(&mut self, ui: &mut egui::Ui)
@@ -120,8 +122,9 @@ impl Configurator
                         ui.text_edit_singleline(&mut self.pc_name);
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
     
-                            if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                                .frame(false)
+                            if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                                //.frame(false)
+                                .rounding(5.0)
                                 .tint(egui::Color32::GREEN))
                                 .on_hover_text("Rename PC. Restart to take effect.")
                                 .clicked()
@@ -141,8 +144,9 @@ impl Configurator
                     ui.heading("Perform Self Update");
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
 
-                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                            .frame(false)
+                        if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                            //.frame(false)
+                            .rounding(5.0)
                             .tint(egui::Color32::GREEN))
                             .on_hover_text("Closes and updates the application")
                             .clicked()
@@ -160,8 +164,9 @@ impl Configurator
                         ui.heading("Start as Admin");
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
     
-                            if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                                .frame(false)
+                            if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                                //.frame(false)
+                                .rounding(5.0)
                                 .tint(egui::Color32::GREEN))
                                 .on_hover_text("Launches another instance as admin")
                                 .clicked()
@@ -267,8 +272,9 @@ fn display_commands(config: ini::Ini, ui: &mut egui::Ui)
 
                                         ui.add_space(10.0);
         
-                                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                                        .frame(false)
+                                        if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                                        //.frame(false)
+                                        .rounding(5.0)
                                         .tint(egui::Color32::GREEN))
                                         .on_hover_text("Go-To")
                                         .clicked()

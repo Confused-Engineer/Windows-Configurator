@@ -3,6 +3,8 @@ use std::os::windows::process::CommandExt;
 use crate::Configurator;
 use eframe::egui;
 
+const BUTTON_SIZE: [f32; 2] = [25.0, 25.0];
+
 impl Configurator
 {
     pub fn page_troubleshooting_first(&mut self, ui: &mut egui::Ui)
@@ -19,8 +21,9 @@ impl Configurator
 
                         ui.add_space(10.0);
 
-                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                        .frame(false)
+                        if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                        //.frame(false)
+                        .rounding(5.0)
                         .tint(egui::Color32::GREEN))
                         .on_hover_text("Launch Ping")
                         .clicked()
@@ -38,8 +41,9 @@ impl Configurator
 
                         ui.add_space(10.0);
 
-                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                        .frame(false)
+                        if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                        //.frame(false)
+                        .rounding(5.0)
                         .tint(egui::Color32::GREEN))
                         .on_hover_text("Launch PathPing")
                         .clicked()
@@ -57,8 +61,9 @@ impl Configurator
 
                         ui.add_space(10.0);
 
-                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                        .frame(false)
+                        if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                        //.frame(false)
+                        .rounding(5.0)
                         .tint(egui::Color32::GREEN))
                         .on_hover_text("Launch TraceRoute")
                         .clicked()
@@ -76,8 +81,9 @@ impl Configurator
 
                         ui.add_space(10.0);
 
-                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                        .frame(false)
+                        if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                        //.frame(false)
+                        .rounding(5.0)
                         .tint(egui::Color32::GREEN))
                         .on_hover_text("Launch NSLookup")
                         .clicked()
@@ -100,8 +106,9 @@ impl Configurator
 
                         ui.add_space(10.0);
 
-                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                        .frame(false)
+                        if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                        //.frame(false)
+                        .rounding(5.0)
                         .tint(egui::Color32::GREEN))
                         .on_hover_text("Launch NSLookup")
                         .clicked()
@@ -226,8 +233,9 @@ fn display_config(config: ini::Ini, ui: &mut egui::Ui)
 
                         ui.add_space(10.0);
 
-                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                        .frame(false)
+                        if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                        //.frame(false)
+                        .rounding(5.0)
                         .tint(egui::Color32::GREEN))
                         .clicked()
                         {
@@ -262,8 +270,9 @@ fn display_config_hidden(config: ini::Ini, ui: &mut egui::Ui)
 
                         ui.add_space(10.0);
 
-                        if ui.add_sized([20.0, 20.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
-                        .frame(false)
+                        if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
+                        //.frame(false)
+                        .rounding(5.0)
                         .tint(egui::Color32::GREEN))
                         .clicked()
                         {
