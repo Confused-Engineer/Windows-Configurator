@@ -12,6 +12,7 @@ jobs:
       - name: build
         run: |
           cargo build --release
+          signtool.exe sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a ".\target\release\Windows_Configurator.exe"
 
       - name: Temporarily Save File
         uses: actions/upload-artifact@v4
