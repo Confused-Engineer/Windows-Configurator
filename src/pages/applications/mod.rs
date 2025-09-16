@@ -45,7 +45,7 @@ impl Configurator
         
                                         if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/volume-off-outline.svg"))
                                         //.frame(false)
-                                        .rounding(5.0)
+                                        .corner_radius(5.0)
                                         .tint(egui::Color32::ORANGE))
                                         .on_hover_text("Install Silently")
                                         .clicked()
@@ -57,7 +57,7 @@ impl Configurator
         
                                         if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/arrow-circle-down-outline.svg"))
                                         //.frame(false)
-                                        .rounding(5.0)
+                                        .corner_radius(5.0)
                                         .tint(egui::Color32::GREEN))
                                         .on_hover_text("Install")
                                         .clicked()
@@ -95,7 +95,7 @@ impl Configurator
 
                                 if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/volume-off-outline.svg"))
                                 //.frame(false)
-                                .rounding(5.0)
+                                .corner_radius(5.0)
                                 .tint(egui::Color32::ORANGE))
                                 .on_hover_text("Install Silently")
                                 .clicked()
@@ -107,7 +107,7 @@ impl Configurator
 
                                 if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/arrow-circle-down-outline.svg"))
                                 //.frame(false)
-                                .rounding(5.0)
+                                .corner_radius(5.0)
                                 .tint(egui::Color32::GREEN))
                                 .on_hover_text("Install")
                                 .clicked()
@@ -140,7 +140,7 @@ impl Configurator
 
                         if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/upload-outline.svg"))
                         //.frame(false)
-                        .rounding(5.0)
+                        .corner_radius(5.0)
                         .tint(egui::Color32::GREEN))
                         .on_hover_text("Update any app winget can upgrade, regardless if it was installed with winget")
                         .clicked()
@@ -174,7 +174,7 @@ impl Configurator
     
                                     if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/arrow-circle-down-outline.svg"))
                                     //.frame(false)
-                                    .rounding(5.0)
+                                    .corner_radius(5.0)
                                     .tint(egui::Color32::GREEN))
                                     .on_hover_text("Run or download and run")
                                     .clicked()
@@ -289,17 +289,38 @@ fn download_and_run(ext: Extensions, name: &str, link: &str)
         },
     }
 
-    let mut file = davids_awesome_library::files::File::new();
-    file.set_file(&filename);
-    
-    let link = link.to_owned();
+        
+    let uri = link.to_owned();
     std::thread::spawn(move || {
 
-        if let Ok(_) = file.download_from(&link)
+        if let Ok(_) = download(&filename, &uri)
         {
             program_launch(&filename);
         }
     });
+}
+
+fn download(filename: &str, uri: &str) -> std::io::Result<()>
+{
+
+    if let Ok(mut download) = reqwest::blocking::get(uri)
+    {
+        if std::path::Path::exists(&std::path::Path::new(filename))
+        {
+            let _ = std::fs::remove_file(filename);
+        }
+
+        // Create the file
+        let mut out_file = std::fs::File::create(filename)?;
+
+        // Write the bytes to the file
+        let _ = std::io::copy(&mut download, &mut out_file)?;
+
+    } else {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Could Not Download File"));
+    }
+
+    Ok(())
 }
 
 enum Extensions {

@@ -205,7 +205,7 @@ impl eframe::App for Configurator {
             let main = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/home-outline.svg"))
                 .frame(false)
                 .selected(self.page == AppPage::Main(SubPage::First))
-                .rounding(10.0)
+                .corner_radius(10.0)
                 .tint(SIDE_BUTTON_COLOR))
                 .on_hover_text("Main");
 
@@ -217,7 +217,7 @@ impl eframe::App for Configurator {
             let app = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/arrow-circle-down-outline.svg"))
                 .frame(false)
                 .selected(self.page == AppPage::Applications(SubPage::First))
-                .rounding(10.0)
+                .corner_radius(10.0)
                 .tint(SIDE_BUTTON_COLOR))
                 .on_hover_text("Install Applications");
 
@@ -229,7 +229,7 @@ impl eframe::App for Configurator {
             let token = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/edit-2-outline.svg"))
                 .frame(false)
                 .selected(self.page == AppPage::Applications(SubPage::Second))
-                .rounding(10.0)
+                .corner_radius(10.0)
                 .tint(SIDE_BUTTON_COLOR))
                 .on_hover_text("Application Tokens");
 
@@ -241,7 +241,7 @@ impl eframe::App for Configurator {
             let launch = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/external-link-outline.svg"))
                 .frame(false)
                 .selected(self.page == AppPage::Settings(SubPage::Second))
-                .rounding(10.0)
+                .corner_radius(10.0)
                 .tint(SIDE_BUTTON_COLOR))
                 .on_hover_text("Launch Windows Settings");
 
@@ -253,7 +253,7 @@ impl eframe::App for Configurator {
             let troubleshoot = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/printer-outline.svg"))
                 .frame(false)
                 .selected(self.page == AppPage::TroubleShooting(SubPage::First))
-                .rounding(10.0)
+                .corner_radius(10.0)
                 .tint(SIDE_BUTTON_COLOR))
                 .on_hover_text("Troubleshooting Options");
 
@@ -265,7 +265,7 @@ impl eframe::App for Configurator {
             let info = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/info-outline.svg"))
                 .frame(false)
                 .selected(self.page == AppPage::TroubleShooting(SubPage::Second))
-                .rounding(10.0)
+                .corner_radius(10.0)
                 .tint(SIDE_BUTTON_COLOR))
                 .on_hover_text("System Information");
 
@@ -277,7 +277,7 @@ impl eframe::App for Configurator {
             let config = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/settings-2-outline.svg"))
                 .frame(false)
                 .selected(self.page == AppPage::Settings(SubPage::First))
-                .rounding(10.0)
+                .corner_radius(10.0)
                 .tint(if self.config.len() == 1 { egui::Color32::RED } else { SIDE_BUTTON_COLOR }))
                 .on_hover_text("Settings and Options");
 
@@ -381,63 +381,40 @@ pub struct Winget
 
 fn is_admin() -> bool
 {
-    if let Ok(_) = get_perms()
-    {
-        return true
-    }
-    false
-}
+        use winapi::um::processthreadsapi::OpenProcessToken;
+        use winapi::um::securitybaseapi::GetTokenInformation;
+        use winapi::um::winnt::{
+            TokenElevation, HANDLE, TOKEN_QUERY, TOKEN_ELEVATION,
+        };
+        use winapi::um::processthreadsapi::GetCurrentProcess;
+        use std::mem::size_of;
+        use std::ptr::null_mut;
 
-use windows::{
-    core::*, Win32::Foundation::*, Win32::Security::*, Win32::System::Memory::*,
-    Win32::System::Threading::*,
-};
-
-fn get_perms() -> Result<()>
-{
-    let mut perm_vec: Vec<String> = Vec::new();
+        
+        
     unsafe {
-        let mut token = HANDLE::default();
-        OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token)?;
-
-        let mut bytes_required = 0;
-        _ = GetTokenInformation(token, TokenPrivileges, None, 0, &mut bytes_required);
-
-        let buffer = Owned::new(LocalAlloc(LPTR, bytes_required as usize)?);
-
-        GetTokenInformation(
-            token,
-            TokenPrivileges,
-            Some(buffer.0 as *mut _),
-            bytes_required,
-            &mut bytes_required,
-        )?;
-
-        let header = &*(buffer.0 as *const TOKEN_PRIVILEGES);
-
-        let privileges =
-            std::slice::from_raw_parts(header.Privileges.as_ptr(), header.PrivilegeCount as usize);
-
-        for privilege in privileges {
-            let mut name_len = 0;
-            _ = LookupPrivilegeNameW(None, &privilege.Luid, PWSTR::null(), &mut name_len);
-
-            let mut name = vec![0u16; (name_len + 1) as usize];
-            let name = PWSTR(name.as_mut_ptr());
-            LookupPrivilegeNameW(None, &privilege.Luid, name, &mut name_len)?;
-
-            
-
-            perm_vec.push(name.display().to_string());
+        let mut token_handle: HANDLE = null_mut();
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token_handle) == 0 {
+            return false;
         }
 
-        for entry in perm_vec
-        {
-            if (entry == "SeSystemProfilePrivilege".to_owned()) || (entry == "SeSecurityPrivilege".to_owned())
-            {
-                return Ok(())
-            }
+        let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
+        let mut return_length = 0;
+
+        let result = GetTokenInformation(
+            token_handle,
+            TokenElevation,
+            &mut elevation as *mut _ as *mut _,
+            size_of::<TOKEN_ELEVATION>() as u32,
+            &mut return_length,
+        );
+
+        if result == 0 {
+            return false;
         }
-        Err(Error::empty())
+
+        return elevation.TokenIsElevated != 0
     }
 }
+
+

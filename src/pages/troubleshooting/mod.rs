@@ -23,7 +23,7 @@ impl Configurator
 
                         if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
                         //.frame(false)
-                        .rounding(5.0)
+                        .corner_radius(5.0)
                         .tint(egui::Color32::GREEN))
                         .on_hover_text("Launch Ping")
                         .clicked()
@@ -43,7 +43,7 @@ impl Configurator
 
                         if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
                         //.frame(false)
-                        .rounding(5.0)
+                        .corner_radius(5.0)
                         .tint(egui::Color32::GREEN))
                         .on_hover_text("Launch PathPing")
                         .clicked()
@@ -63,7 +63,7 @@ impl Configurator
 
                         if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
                         //.frame(false)
-                        .rounding(5.0)
+                        .corner_radius(5.0)
                         .tint(egui::Color32::GREEN))
                         .on_hover_text("Launch TraceRoute")
                         .clicked()
@@ -83,7 +83,7 @@ impl Configurator
 
                         if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
                         //.frame(false)
-                        .rounding(5.0)
+                        .corner_radius(5.0)
                         .tint(egui::Color32::GREEN))
                         .on_hover_text("Launch NSLookup")
                         .clicked()
@@ -108,7 +108,7 @@ impl Configurator
 
                         if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
                         //.frame(false)
-                        .rounding(5.0)
+                        .corner_radius(5.0)
                         .tint(egui::Color32::GREEN))
                         .on_hover_text("Launch NSLookup")
                         .clicked()
@@ -235,7 +235,7 @@ fn display_config(config: ini::Ini, ui: &mut egui::Ui)
 
                         if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
                         //.frame(false)
-                        .rounding(5.0)
+                        .corner_radius(5.0)
                         .tint(egui::Color32::GREEN))
                         .clicked()
                         {
@@ -272,7 +272,7 @@ fn display_config_hidden(config: ini::Ini, ui: &mut egui::Ui)
 
                         if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
                         //.frame(false)
-                        .rounding(5.0)
+                        .corner_radius(5.0)
                         .tint(egui::Color32::GREEN))
                         .clicked()
                         {

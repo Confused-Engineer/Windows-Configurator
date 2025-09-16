@@ -3,7 +3,7 @@
 // When compiling natively:
 
 fn main() -> eframe::Result<()> {
-    let _ = davids_awesome_library::env::set_exe_dir();
+    let _ = davids_standard_library::env::set_exe_dir();
 
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()

@@ -23,7 +23,7 @@ impl Configurator
 
                     let reset = ui.add_sized([25.0, 25.0], egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/refresh-outline.svg"))
                     .frame(false)
-                    .rounding(10.0)
+                    .corner_radius(10.0)
                     .tint(egui::Color32::GREEN))
                     .on_hover_text("Reset Config File");
 
@@ -124,7 +124,7 @@ impl Configurator
     
                             if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
                                 //.frame(false)
-                                .rounding(5.0)
+                                .corner_radius(5.0)
                                 .tint(egui::Color32::GREEN))
                                 .on_hover_text("Rename PC. Restart to take effect.")
                                 .clicked()
@@ -146,7 +146,7 @@ impl Configurator
 
                         if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
                             //.frame(false)
-                            .rounding(5.0)
+                            .corner_radius(5.0)
                             .tint(egui::Color32::GREEN))
                             .on_hover_text("Closes and updates the application")
                             .clicked()
@@ -166,19 +166,24 @@ impl Configurator
     
                             if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
                                 //.frame(false)
-                                .rounding(5.0)
+                                .corner_radius(5.0)
                                 .tint(egui::Color32::GREEN))
                                 .on_hover_text("Launches another instance as admin")
                                 .clicked()
                             {
-                                if let Ok(exe_path) = std::env::current_exe()
-                                {
-                                    let _ = std::process::Command::new("powershell")
-                                    .args(["start-process", &format!("\"{}\"", exe_path.display()), "-verb", "runas"])
-                                    .creation_flags(0x08000000)
-                                    .spawn();
-                                }
-                                
+                                let operation = widestring::U16CString::from_str("runas").unwrap();
+                                let file = widestring::U16CString::from_str(std::env::current_exe().unwrap().to_str().unwrap()).unwrap();
+
+                                unsafe {
+                                    winapi::um::shellapi::ShellExecuteW(
+                                    std::ptr::null_mut(),
+                                    operation.as_ptr(),
+                                    file.as_ptr(),
+                                    std::ptr::null(),
+                                    std::ptr::null(),
+                                    winapi::um::winuser::SW_SHOWNORMAL,
+                                    );
+                                }                        
                             }
     
                         });
@@ -274,7 +279,7 @@ fn display_commands(config: ini::Ini, ui: &mut egui::Ui)
         
                                         if ui.add_sized(BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../../../assets/resources/images/svg/external-link-outline.svg"))
                                         //.frame(false)
-                                        .rounding(5.0)
+                                        .corner_radius(5.0)
                                         .tint(egui::Color32::GREEN))
                                         .on_hover_text("Go-To")
                                         .clicked()

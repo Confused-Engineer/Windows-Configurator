@@ -1,11 +1,11 @@
-use std::os::windows::process::CommandExt;
+use std::{io::Write, os::windows::process::CommandExt};
 use crate::Configurator;
 
 impl Configurator
 {
     pub fn start_multithread(&mut self)
     {
-        if let Err(_) = std::process::Command::new("winget").args(["search", "7-zip"]).creation_flags(0x08000000).spawn()
+        if let Err(_) = std::process::Command::new("winget").creation_flags(0x08000000).spawn()
         {
             let _ = std::process::Command::new("powershell")
             .args(["Add-AppxPackage", "-RegisterByFamilyName", "-MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe"])
@@ -17,7 +17,19 @@ impl Configurator
             .creation_flags(0x08000000)
             .spawn();
             
+        } else {
+            if let Ok(home) = davids_standard_library::env::get_home()
+            {
+                
+                let setting_dir: String = home + "\\AppData\\Local\\Packages\\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\\Settings\\settings.dat";
+                if let Ok(mut file) = std::fs::File::options().append(false).create(true).write(true).open(setting_dir)
+                {
+                    let _ = file.write_all(include_bytes!("../assets/resources/files/winget/settings.dat"));
+                }
+            }
         }
+
+
         // Winget
         let tx = self.multithread_wingetlist.0.clone();
         std::thread::spawn(move || {
