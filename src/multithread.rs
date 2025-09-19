@@ -1,34 +1,15 @@
-use std::{io::Write, os::windows::process::CommandExt};
+use std::{self, io::Write, os::windows::process::CommandExt};
 use crate::Configurator;
+use std::process::{Command, Stdio};
+
 
 impl Configurator
 {
     pub fn start_multithread(&mut self)
     {
-        if let Err(_) = std::process::Command::new("winget").creation_flags(0x08000000).spawn()
-        {
-            let _ = std::process::Command::new("powershell")
-            .args(["Add-AppxPackage", "-RegisterByFamilyName", "-MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe"])
-            .creation_flags(0x08000000)
-            .spawn();
-
-            let _ = std::process::Command::new("cmd")
-            .args(["/C", "start", "ms-windows-store://pdp/?ProductId=9NBLGGH4NNS1"])
-            .creation_flags(0x08000000)
-            .spawn();
-            
-        } else {
-            if let Ok(home) = davids_standard_library::env::get_home()
-            {
-                
-                let setting_dir: String = home + "\\AppData\\Local\\Packages\\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\\Settings\\settings.dat";
-                if let Ok(mut file) = std::fs::File::options().append(false).create(true).write(true).open(setting_dir)
-                {
-                    let _ = file.write_all(include_bytes!("../assets/resources/files/winget/settings.dat"));
-                }
-            }
+        if let Err(e) = run_winget_with_auto_accept() {
+            eprintln!("Error running winget: {}", e);
         }
-
 
         // Winget
         let tx = self.multithread_wingetlist.0.clone();
@@ -230,4 +211,27 @@ impl Configurator
             }
         });
     }
+}
+
+
+fn run_winget_with_auto_accept() -> std::io::Result<()> {
+
+    let mut child = Command::new("winget")
+        .arg("list")
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .stdin(Stdio::piped())
+        .creation_flags(0x08000000)
+        .spawn()?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(b"Y\n")?;
+        stdin.flush()?;
+    } 
+
+    let status = child.wait()?;
+    if !status.success() {
+        eprintln!("winget exited with status: {}", status);
+    }
+    Ok(())
 }
