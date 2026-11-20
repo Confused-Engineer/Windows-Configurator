@@ -23,6 +23,9 @@ pub enum Event {
     /// The full winget package catalog.
     Catalog(Result<Vec<winget::Package>, String>),
     SysInfo(SysInfo),
+    /// Result of checking which version an install will pick, tagged with
+    /// the dialog check it answers.
+    Resolved(u64, Result<winget::Resolution, String>),
     /// Close the app (used by the self-updater after swapping executables).
     Quit,
 }

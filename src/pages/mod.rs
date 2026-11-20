@@ -2,6 +2,7 @@
 
 mod apps;
 mod home;
+mod install_dialog;
 mod launch;
 mod settings;
 mod sysinfo;
@@ -9,6 +10,8 @@ mod tokens;
 mod troubleshoot;
 
 use eframe::egui::{self, Ui};
+
+pub(crate) use install_dialog::InstallDialog;
 
 use crate::app::{Configurator, WingetStatus};
 use crate::ui;

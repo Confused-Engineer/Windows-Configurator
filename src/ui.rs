@@ -31,6 +31,7 @@ pub mod icons {
     icon!(upload, "upload-outline.svg");
     icon!(refresh, "refresh-outline.svg");
     icon!(copy, "copy-outline.svg");
+    icon!(options, "options-2-outline.svg");
 }
 
 pub fn apply_theme(ctx: &egui::Context) {

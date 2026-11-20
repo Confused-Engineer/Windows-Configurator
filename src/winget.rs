@@ -144,15 +144,120 @@ pub fn parse_catalog(text: &str) -> Vec<Package> {
         .collect()
 }
 
+/// What to install and with which extra `winget install` arguments
+/// (e.g. `--scope machine --installer-type wix`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct InstallRequest {
+    pub name: String,
+    pub id: String,
+    pub args: Vec<String>,
+}
+
+impl InstallRequest {
+    pub fn new(name: &str, id: &str) -> Self {
+        Self {
+            name: name.to_owned(),
+            id: id.to_owned(),
+            args: Vec::new(),
+        }
+    }
+
+    /// Parses a favourite from config: `Name = Winget.Id [extra args…]`.
+    pub fn from_config(name: &str, value: &str) -> Result<Self, String> {
+        let mut words = split_args(value)?.into_iter();
+        let id = words.next().ok_or("missing winget id")?;
+        Ok(Self {
+            name: name.to_owned(),
+            id,
+            args: words.collect(),
+        })
+    }
+
+    /// The `winget install …` arguments after the executable.
+    fn arguments(&self) -> String {
+        let mut line = format!("install --exact --id {} {ACCEPT} --silent", quote(&self.id));
+        for arg in &self.args {
+            line.push(' ');
+            line.push_str(&quote(arg));
+        }
+        line
+    }
+
+    /// Human-readable command, for tooltips and the options dialog.
+    pub fn display(&self) -> String {
+        format!("winget {}", self.arguments())
+    }
+}
+
+/// Characters that cannot be passed safely through `cmd.exe`, even quoted.
+const FORBIDDEN: &[char] = &['"', '%', '\r', '\n'];
+
+/// Splits an argument string on whitespace, honouring "double quotes".
+/// Rejects characters that could break out of the `cmd.exe` line.
+pub fn split_args(text: &str) -> Result<Vec<String>, String> {
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut in_quotes = false;
+    let mut has_token = false;
+    for c in text.chars() {
+        match c {
+            '"' => {
+                in_quotes = !in_quotes;
+                has_token = true;
+            }
+            c if c.is_whitespace() && !in_quotes => {
+                if has_token {
+                    args.push(std::mem::take(&mut current));
+                    has_token = false;
+                }
+            }
+            '%' => return Err("'%' is not allowed in winget arguments".into()),
+            c => {
+                current.push(c);
+                has_token = true;
+            }
+        }
+    }
+    if in_quotes {
+        return Err("unbalanced quote".into());
+    }
+    if has_token {
+        args.push(current);
+    }
+    Ok(args)
+}
+
+fn quote(arg: &str) -> String {
+    debug_assert!(!arg.contains(FORBIDDEN));
+    if !arg.is_empty()
+        && arg
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "-_.:/\\=+".contains(c))
+    {
+        return arg.to_owned();
+    }
+    // Trailing backslashes would escape the closing quote (`"C:\dir\"`).
+    let trailing = arg.len() - arg.trim_end_matches('\\').len();
+    format!("\"{arg}{}\"", "\\".repeat(trailing))
+}
+
+fn valid(request: &InstallRequest) -> Result<(), String> {
+    std::iter::once(&request.id)
+        .chain(&request.args)
+        .find(|a| a.contains(FORBIDDEN) || a.is_empty())
+        .map_or(Ok(()), |a| Err(format!("invalid argument {a:?}")))
+}
+
 /// Installs a package by exact id. `Window::Visible` shows winget's progress
 /// in a console (kept open on failure); `Window::Hidden` reports the result
 /// in the status bar.
-pub fn install(bus: &Bus, name: &str, id: &str, window: Window) {
+pub fn install(bus: &Bus, request: &InstallRequest, window: Window) {
+    if let Err(e) = valid(request) {
+        bus.status(format!("Not installing {}: {e}", request.name));
+        return;
+    }
     let exe = locate().unwrap_or_else(|| "winget.exe".into());
-    let line = format!(
-        "\"{}\" install --exact --id \"{id}\" {ACCEPT} --silent",
-        exe.display()
-    );
+    let line = format!("\"{}\" {}", exe.display(), request.arguments());
     match window {
         Window::Visible => {
             if let Err(e) = platform::cmd(&format!("{line} || pause"), Window::Visible) {
@@ -160,7 +265,10 @@ pub fn install(bus: &Bus, name: &str, id: &str, window: Window) {
             }
         }
         Window::Hidden => {
-            let (name, line) = (name.to_owned(), format!("{line} --disable-interactivity"));
+            let (name, line) = (
+                request.name.clone(),
+                format!("{line} --disable-interactivity"),
+            );
             bus.status(format!("Installing {name}…"));
             bus.spawn("winget-install", move |bus| {
                 let result = platform::cmd(&line, Window::Hidden).and_then(|mut c| c.wait());
@@ -175,6 +283,121 @@ pub fn install(bus: &Bus, name: &str, id: &str, window: Window) {
             });
         }
     }
+}
+
+/// Which version/installer `winget install` will actually pick for a request.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Resolution {
+    pub version: String,
+    pub installer_type: Option<String>,
+    pub url: Option<String>,
+    /// The newest version, when it differs from `version` (it had no
+    /// installer matching the selected scope / type / architecture).
+    pub newer_skipped: Option<String>,
+}
+
+/// How many versions (newest first) to try before giving up.
+const RESOLVE_DEPTH: usize = 25;
+
+/// `winget install` arguments that also narrow `winget show`.
+const SELECTORS: [&str; 6] = [
+    "--scope",
+    "--installer-type",
+    "--architecture",
+    "-a",
+    "--locale",
+    "--version",
+];
+
+/// Works out which version and installer `winget install` will use for
+/// `request`. winget silently falls back to the newest version that has a
+/// matching installer, which `winget show` alone does not do, so versions are
+/// tried newest-first.
+pub fn resolve(request: &InstallRequest) -> Result<Resolution, String> {
+    let mut selectors = Vec::new();
+    let mut pinned = None;
+    let mut args = request.args.iter();
+    while let Some(arg) = args.next() {
+        if SELECTORS.contains(&arg.as_str())
+            && let Some(value) = args.next()
+        {
+            if arg == "--version" {
+                pinned = Some(value.clone());
+            } else {
+                selectors.extend([arg.clone(), value.clone()]);
+            }
+        }
+    }
+
+    let versions = match pinned {
+        Some(v) => vec![v],
+        None => list_versions(&request.id)?,
+    };
+    let newest = versions.first().cloned();
+    for version in versions.iter().take(RESOLVE_DEPTH) {
+        if let Some(mut found) = show(&request.id, version, &selectors)? {
+            found.newer_skipped = newest.filter(|n| *n != found.version);
+            return Ok(found);
+        }
+    }
+    Err(if versions.len() == 1 {
+        "that version has no installer matching these options".to_owned()
+    } else {
+        format!(
+            "none of the newest {} versions has an installer matching these options",
+            versions.len().min(RESOLVE_DEPTH)
+        )
+    })
+}
+
+fn list_versions(id: &str) -> Result<Vec<String>, String> {
+    let out = command()
+        .args(["show", "--exact", "--id", id, "--versions"])
+        .args(["--accept-source-agreements", "--disable-interactivity"])
+        .output()
+        .map_err(|e| format!("could not run winget: {e}"))?;
+    let versions = parse_versions(&String::from_utf8_lossy(&out.stdout));
+    if versions.is_empty() {
+        Err(format!("no package with id {id}"))
+    } else {
+        Ok(versions)
+    }
+}
+
+fn parse_versions(text: &str) -> Vec<String> {
+    text.lines()
+        .map(str::trim)
+        .skip_while(|l| !l.starts_with("---"))
+        .skip(1)
+        .take_while(|l| !l.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+fn show(id: &str, version: &str, selectors: &[String]) -> Result<Option<Resolution>, String> {
+    let out = command()
+        .args(["show", "--exact", "--id", id, "--version", version])
+        .args(selectors)
+        .args(["--accept-source-agreements", "--disable-interactivity"])
+        .output()
+        .map_err(|e| format!("could not run winget: {e}"))?;
+    Ok(parse_show(&String::from_utf8_lossy(&out.stdout)))
+}
+
+fn parse_show(text: &str) -> Option<Resolution> {
+    if text.contains("No applicable installer") {
+        return None;
+    }
+    let field = |name: &str| {
+        text.lines()
+            .find_map(|l| l.trim().strip_prefix(name).map(|v| v.trim().to_owned()))
+    };
+    Some(Resolution {
+        version: field("Version:")?,
+        installer_type: field("Installer Type:"),
+        url: field("Installer Url:"),
+        newer_skipped: None,
+    })
 }
 
 /// Upgrades everything winget can, in a visible console.
@@ -269,6 +492,79 @@ x\n";
             pkgs.iter()
                 .all(|p| !p.id.contains(' ') && !p.version.is_empty())
         );
+    }
+
+    #[test]
+    fn config_entries_with_extra_arguments() {
+        let plain = InstallRequest::from_config("7-zip", "7zip.7zip").unwrap();
+        assert_eq!(plain.args, Vec::<String>::new());
+
+        let pwsh = InstallRequest::from_config(
+            "PowerShell",
+            " Microsoft.PowerShell  --scope machine --installer-type wix ",
+        )
+        .unwrap();
+        assert_eq!(pwsh.id, "Microsoft.PowerShell");
+        assert_eq!(pwsh.args, ["--scope", "machine", "--installer-type", "wix"]);
+        assert_eq!(
+            pwsh.display(),
+            "winget install --exact --id Microsoft.PowerShell --accept-source-agreements \
+             --accept-package-agreements --silent --scope machine --installer-type wix"
+        );
+
+        let quoted =
+            InstallRequest::from_config("x", r#"Id --location "C:\Program Files\X""#).unwrap();
+        assert_eq!(quoted.args, ["--location", r"C:\Program Files\X"]);
+        assert!(
+            quoted
+                .display()
+                .ends_with(r#"--location "C:\Program Files\X""#)
+        );
+        assert_eq!(quote(r"C:\Dir Name\"), r#""C:\Dir Name\\""#);
+    }
+
+    #[test]
+    fn unsafe_arguments_are_rejected() {
+        assert!(split_args("--override %PATH%").is_err());
+        assert!(split_args(r#"--log "unterminated"#).is_err());
+        assert!(InstallRequest::from_config("x", "").is_err());
+        // cmd metacharacters are fine once quoted.
+        let r = InstallRequest::from_config("x", "Id --custom a&b|c").unwrap();
+        assert!(r.display().ends_with(r#""a&b|c""#));
+    }
+
+    #[test]
+    fn parses_show_and_versions_output() {
+        let show = "Found PowerShell [Microsoft.PowerShell]\r\nVersion: 7.6.10.0\r\nPublisher: Microsoft\r\n\
+Installer:\r\n  Installer Type: wix\r\n  Installer Url: https://x/PowerShell-7.6.10-win-x64.msi\r\n";
+        let r = parse_show(show).unwrap();
+        assert_eq!(r.version, "7.6.10.0");
+        assert_eq!(r.installer_type.as_deref(), Some("wix"));
+        assert_eq!(
+            r.url.as_deref(),
+            Some("https://x/PowerShell-7.6.10-win-x64.msi")
+        );
+        assert_eq!(
+            parse_show("Found X\nVersion: 1\n  No applicable installer found; see logs"),
+            None
+        );
+
+        let versions = "Found PowerShell [Microsoft.PowerShell]\r\nVersion\r\n--------\r\n7.7.0.0\r\n7.6.10.0\r\n";
+        assert_eq!(parse_versions(versions), ["7.7.0.0", "7.6.10.0"]);
+    }
+
+    /// `cargo test -- --ignored live_resolve`
+    #[test]
+    #[ignore = "needs winget and network"]
+    fn live_resolve_falls_back_to_older_version() {
+        let request = InstallRequest::from_config(
+            "pwsh",
+            "Microsoft.PowerShell --scope machine --installer-type wix",
+        )
+        .unwrap();
+        let r = resolve(&request).unwrap();
+        assert_eq!(r.installer_type.as_deref(), Some("wix"));
+        println!("{r:?}");
     }
 
     #[test]

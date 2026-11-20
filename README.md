@@ -7,7 +7,8 @@ It is a single `.exe` meant to live on a USB drive next to its `config.ini`.
 
 - **Applications** – install favourites from your config or search the whole
   winget catalog; install with progress or silently in the background; upgrade
-  everything at once; run your own installers, scripts and download links.
+  everything at once; per-app install options (all-users scope, installer
+  type, architecture, extra winget arguments); run your own installers, scripts and download links.
 - **Install winget** – on debloated / Store-less Windows, installs winget from
   the PowerShell Gallery (NuGet → `Microsoft.WinGet.Client` →
   `Repair-WinGetPackageManager -AllUsers`). Offered automatically when winget
@@ -52,7 +53,7 @@ See [`assets/config.ini`](assets/config.ini) for the documented template:
 
 | Section | Entry | Action |
 |---|---|---|
-| `[winget-<Category>]` | `Name = Winget.Id` | Favourite apps, grouped by category |
+| `[winget-<Category>]` | `Name = Winget.Id [winget args]` | Favourite apps, grouped by category; optional args e.g. `--scope machine --installer-type wix` |
 | `[Programs]` | `Name = path\to\file.exe` | Opened directly (paths relative to the exe) |
 | `[Powershell]` | `Name = script.ps1` | Run with `-ExecutionPolicy Bypass` |
 | `[<EXT>-Online]` | `Name = https://…` | Downloaded as `Name.<ext>` and opened |

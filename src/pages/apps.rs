@@ -4,7 +4,10 @@ use crate::app::Configurator;
 use crate::config::LaunchKind;
 use crate::platform::{self, Window};
 use crate::ui::{self, icons};
+use crate::winget::InstallRequest;
 use crate::{download, paths, winget};
+
+use super::InstallDialog;
 
 /// Search results are virtualised, but capping them keeps the scrollbar sane.
 const MAX_RESULTS: usize = 500;
@@ -15,6 +18,7 @@ impl Configurator {
         let bus = self.bus.clone();
         let winget_ok = self.winget.available();
 
+        let mut dialog = None;
         ui.columns_const(|[favorites, search, others]| {
             // Favourites from [winget-*] config sections.
             ui::heading(favorites, "Favorites");
@@ -26,8 +30,9 @@ impl Configurator {
                     }
                     for section in sections {
                         ui::group_heading(ui, section.name);
-                        for (name, id) in section.entries {
-                            install_row(ui, &bus, name, id, None);
+                        for (name, value) in section.entries {
+                            let request = InstallRequest::from_config(name, value);
+                            install_row(ui, &bus, name, request, &mut dialog);
                         }
                     }
                 });
@@ -71,6 +76,9 @@ impl Configurator {
                 }
             });
         });
+        if dialog.is_some() {
+            self.install_dialog = dialog;
+        }
     }
 
     fn catalog_search(&mut self, ui: &mut Ui) {
@@ -128,37 +136,55 @@ impl Configurator {
             .show_rows(ui, row_height, total.min(MAX_RESULTS), |ui, range| {
                 for &i in &self.winget.filtered[range] {
                     let pkg = &self.winget.catalog[i];
-                    install_row(ui, &bus, &pkg.name, &pkg.id, Some(&pkg.version));
+                    let label = format!("{}  |  {}", pkg.name, pkg.version);
+                    let request = Ok(InstallRequest::new(&pkg.name, &pkg.id));
+                    install_row(ui, &bus, &label, request, &mut self.install_dialog);
                 }
             });
     }
 }
 
-fn install_row(ui: &mut Ui, bus: &crate::tasks::Bus, name: &str, id: &str, version: Option<&str>) {
-    let label = match version {
-        Some(v) => format!("{name}  |  {v}"),
-        None => name.to_owned(),
+fn install_row(
+    ui: &mut Ui,
+    bus: &crate::tasks::Bus,
+    label: &str,
+    request: Result<InstallRequest, String>,
+    dialog: &mut Option<InstallDialog>,
+) {
+    let request = match request {
+        Ok(request) => request,
+        Err(e) => {
+            ui::row(ui, egui::RichText::new(label).color(ui::RED), |ui| {
+                ui.colored_label(ui::RED, "invalid")
+                    .on_hover_text(format!("Invalid config entry: {e}"));
+            });
+            return;
+        }
     };
+    let command = request.display();
     ui::row(ui, label, |ui| {
+        if ui::icon_button(ui, icons::options(), ui::NAV_TINT, "Install options: scope (user / all users), installer type, architecture, extra arguments…").clicked() {
+            *dialog = Some(InstallDialog::new(&request));
+        }
         if ui::icon_button(
             ui,
             icons::silent(),
             ui::ORANGE,
-            &format!("Install {id} in the background"),
+            &format!("Install in the background\n{command}"),
         )
         .clicked()
         {
-            winget::install(bus, name, id, Window::Hidden);
+            winget::install(bus, &request, Window::Hidden);
         }
         if ui::icon_button(
             ui,
             icons::download(),
             ui::GREEN,
-            &format!("Install {id} (shows progress)"),
+            &format!("Install (shows progress)\n{command}"),
         )
         .clicked()
         {
-            winget::install(bus, name, id, Window::Visible);
+            winget::install(bus, &request, Window::Visible);
         }
     });
 }

@@ -118,6 +118,7 @@ pub struct Configurator {
     pub(crate) sysinfo: SysInfoState,
     pub(crate) net_target: String,
     pub(crate) pc_name: String,
+    pub(crate) install_dialog: Option<crate::pages::InstallDialog>,
     status: VecDeque<String>,
 }
 
@@ -154,6 +155,7 @@ impl Configurator {
             },
             net_target: String::new(),
             pc_name: String::new(),
+            install_dialog: None,
             status: VecDeque::new(),
         }
     }
@@ -199,6 +201,11 @@ impl Configurator {
                         loading: false,
                         updated: Some(Instant::now()),
                     };
+                }
+                Event::Resolved(check, result) => {
+                    if let Some(dialog) = &mut self.install_dialog {
+                        dialog.resolved(check, result);
+                    }
                 }
                 Event::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
             }
@@ -315,6 +322,8 @@ impl eframe::App for Configurator {
                 Page::Settings => self.page_settings(ui),
             }
         });
+        let ctx = ui.ctx().clone();
+        self.show_install_dialog(&ctx);
     }
 }
 
@@ -348,5 +357,30 @@ mod tests {
                 image.save(dir.join(format!("{page:?}.png"))).unwrap();
             }
         }
+
+        // The install options dialog, pre-filled from a config-style entry.
+        let request = winget::InstallRequest::from_config(
+            "PowerShell 7 (all users)",
+            "Microsoft.PowerShell --scope machine --installer-type wix",
+        )
+        .unwrap();
+        harness.state_mut().page = Page::Apps;
+        harness.state_mut().install_dialog = Some(crate::pages::InstallDialog::new(&request));
+        harness.run_steps(5);
+        if snapshots.is_some() {
+            // Give the live "which version?" lookup time to finish for the PNG.
+            for _ in 0..60 {
+                std::thread::sleep(Duration::from_millis(300));
+                harness.run_steps(2);
+            }
+        }
+        let image = harness.render().expect("render dialog");
+        if let Some(dir) = &snapshots {
+            image.save(dir.join("InstallDialog.png")).unwrap();
+        }
+        assert!(
+            harness.state().install_dialog.is_some(),
+            "dialog closed by itself"
+        );
     }
 }
