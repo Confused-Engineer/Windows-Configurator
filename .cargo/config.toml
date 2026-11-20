@@ -1,0 +1,4 @@
+# Statically link the C runtime as well (see static_vcruntime in build.rs) so
+# the portable exe has no runtime DLL dependencies beyond Windows itself.
+[target.'cfg(all(windows, target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]
