@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
-use eframe::egui::{self, ImageSource};
+use egui::ImageSource;
 
 use crate::config::{self, Config};
 use crate::sysinfo::SysInfo;
@@ -110,7 +110,6 @@ const STATUS_HISTORY: usize = 30;
 pub struct Configurator {
     pub(crate) page: Page,
     pub(crate) elevated: bool,
-    pub(crate) renderer: String,
     pub(crate) bus: Bus,
     events: Receiver<Event>,
     pub(crate) config: Config,
@@ -123,20 +122,17 @@ pub struct Configurator {
 }
 
 impl Configurator {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        ui::apply_theme(&cc.egui_ctx);
+    pub fn new(ctx: &egui::Context) -> Self {
+        ui::apply_theme(ctx);
+        egui_extras::install_image_loaders(ctx);
 
-        let renderer = renderer_description(cc);
-        eprintln!("renderer: {renderer}"); // visible in debug builds / when run from a console
-
-        let (bus, events) = Bus::new(cc.egui_ctx.clone());
+        let (bus, events) = Bus::new(ctx.clone());
         config::watch(&bus);
         winget::refresh(&bus);
 
         Self {
             page: Page::Home,
             elevated: platform::is_elevated(),
-            renderer,
             bus,
             events,
             config: Config::load(&crate::paths::config()),
@@ -285,26 +281,13 @@ impl Configurator {
     }
 }
 
-fn renderer_description(cc: &eframe::CreationContext<'_>) -> String {
-    if let Some(state) = &cc.wgpu_render_state {
-        let info = state.adapter.get_info();
-        format!(
-            "wgpu · {:?} · {} ({:?})",
-            info.backend, info.name, info.device_type
-        )
-    } else if cc.gl.is_some() {
-        "OpenGL (glow)".to_owned()
-    } else {
-        "unknown".to_owned()
-    }
-}
-
-impl eframe::App for Configurator {
-    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+/// Called by the window loop (`cpu.rs`) every frame: `logic` first, then `ui`.
+impl Configurator {
+    pub fn logic(&mut self, ctx: &egui::Context) {
         self.handle_events(ctx);
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    pub fn ui(&mut self, ui: &mut egui::Ui) {
         egui::Panel::left("nav")
             .resizable(false)
             .exact_size(66.0)
@@ -330,32 +313,42 @@ impl eframe::App for Configurator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use egui_kittest::Harness;
+    use crate::cpu::Offscreen;
 
-    /// Renders every page offscreen. Set `WINCONFIG_SNAPSHOT_DIR` to also
-    /// save a PNG per page.
+    /// Renders every page offscreen with the window's own CPU renderer. Set
+    /// `WINCONFIG_SNAPSHOT_DIR` to also save a PNG per page.
     #[test]
     fn every_page_renders() {
-        let mut harness = Harness::builder()
-            .with_size([1200.0, 650.0])
-            .wgpu()
-            .build_eframe(|cc| {
-                egui_extras::install_image_loaders(&cc.egui_ctx);
-                Configurator::new(cc)
-            });
+        let mut screen = Offscreen::new(1200, 650);
+        let mut app = Configurator::new(&screen.ctx.clone());
         let snapshots = std::env::var_os("WINCONFIG_SNAPSHOT_DIR").map(std::path::PathBuf::from);
-        for page in Page::ALL {
-            harness.state_mut().page = page;
-            // Fixed steps: spinners keep requesting repaints, so `run()` would not settle.
-            for _ in 0..4 {
-                harness.run_steps(3);
-                std::thread::sleep(Duration::from_millis(100)); // let image loaders finish
+        let frames = |screen: &mut Offscreen, app: &mut Configurator, rounds: usize, pause: u64| {
+            for _ in 0..rounds {
+                for _ in 0..3 {
+                    screen.frame(app);
+                }
+                std::thread::sleep(Duration::from_millis(pause)); // image loaders, background jobs
             }
-            let image = harness.render().expect("render");
+            screen.frame(app)
+        };
+        let save = |image: &image::RgbaImage, name: &str| {
             if let Some(dir) = &snapshots {
                 std::fs::create_dir_all(dir).unwrap();
-                image.save(dir.join(format!("{page:?}.png"))).unwrap();
+                image.save(dir.join(format!("{name}.png"))).unwrap();
             }
+        };
+
+        for page in Page::ALL {
+            app.page = page;
+            let image = frames(&mut screen, &mut app, 4, 100);
+            // Drawn, and dark: the panel background covers much of the frame.
+            let [r, g, b, _] = egui::Rgba::from(ui::PANEL_FILL).to_srgba_unmultiplied();
+            let bg = image.pixels().filter(|p| p.0[..3] == [r, g, b]).count();
+            assert!(
+                bg * 3 > image.pixels().len(),
+                "{page:?}: only {bg} background pixels"
+            );
+            save(&image, &format!("{page:?}"));
         }
 
         // The install options dialog, pre-filled from a config-style entry.
@@ -364,23 +357,12 @@ mod tests {
             "Microsoft.PowerShell --scope machine --installer-type wix",
         )
         .unwrap();
-        harness.state_mut().page = Page::Apps;
-        harness.state_mut().install_dialog = Some(crate::pages::InstallDialog::new(&request));
-        harness.run_steps(5);
-        if snapshots.is_some() {
-            // Give the live "which version?" lookup time to finish for the PNG.
-            for _ in 0..60 {
-                std::thread::sleep(Duration::from_millis(300));
-                harness.run_steps(2);
-            }
-        }
-        let image = harness.render().expect("render dialog");
-        if let Some(dir) = &snapshots {
-            image.save(dir.join("InstallDialog.png")).unwrap();
-        }
-        assert!(
-            harness.state().install_dialog.is_some(),
-            "dialog closed by itself"
-        );
+        app.page = Page::Apps;
+        app.install_dialog = Some(crate::pages::InstallDialog::new(&request));
+        // With snapshots, give the live "which version?" lookup time to finish.
+        let rounds = if snapshots.is_some() { 60 } else { 2 };
+        let image = frames(&mut screen, &mut app, rounds, 300);
+        save(&image, "InstallDialog");
+        assert!(app.install_dialog.is_some(), "dialog closed by itself");
     }
 }

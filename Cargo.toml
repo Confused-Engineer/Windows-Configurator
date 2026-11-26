@@ -14,17 +14,18 @@ name = "Windows_Configurator"
 path = "src/main.rs"
 
 [dependencies]
-# Both renderers are compiled in. wgpu (DirectX 12 / Vulkan, with a software
-# WARP fallback) is tried first because it works in VMs and RDP sessions that
-# only expose OpenGL 1.1; glow (OpenGL) is the fallback. See `src/main.rs`.
-eframe = { version = "0.37.0", default-features = false, features = [
-    "accesskit",     # screen readers / UI Automation
-    "clipboard",     # copy tokens, paste into text fields
-    "default_fonts",
-    "glow",
-    "links",         # hyperlinks open in the browser
-    "wgpu",
+# UI: egui drawn on the CPU (src/cpu.rs). No Direct3D/OpenGL, so it renders
+# the same in GPU-less VMs, RDP sessions and on real hardware.
+egui = { version = "0.37.0", default-features = false, features = ["default_fonts"] }
+egui-winit = { version = "0.37.0", default-features = false, features = [
+    "clipboard", # copy tokens, paste into text fields
+    "links",     # hyperlinks open in the browser
 ] }
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06"] }
+softbuffer = { version = "0.4.8", default-features = false }
+hdrshot-egui-backend = "0.2.0" # tile-caching CPU rasterizer for egui
+bytemuck = "1"
+image = { version = "0.25.10", default-features = false, features = ["png"] } # window icon
 egui_extras = { version = "0.37.0", default-features = false, features = ["svg"] }
 rust-ini = "0.21.3"
 # HTTP downloads through the Windows TLS stack (SChannel) and certificate
@@ -38,11 +39,6 @@ windows = { version = "0.62.2", features = [
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
-
-[dev-dependencies]
-# Headless UI tests: drive the app through AccessKit and render pages offscreen.
-egui_kittest = { version = "0.37.0", features = ["eframe", "wgpu"] }
-image = { version = "0.25.10", default-features = false, features = ["png"] }
 
 [build-dependencies]
 winresource = "0.1.34"

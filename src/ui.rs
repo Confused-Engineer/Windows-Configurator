@@ -1,12 +1,13 @@
 //! Shared widgets, icons and theme.
 
-use eframe::egui::{self, Color32, ImageSource, Response, RichText, Ui, Vec2, include_image};
+use egui::{Color32, ImageSource, Response, RichText, Ui, Vec2, include_image};
 
 pub const ROW_BUTTON: Vec2 = Vec2::splat(25.0);
 pub const GREEN: Color32 = Color32::from_rgb(60, 200, 90);
 pub const ORANGE: Color32 = Color32::from_rgb(240, 150, 40);
 pub const RED: Color32 = Color32::from_rgb(230, 70, 70);
 pub const NAV_TINT: Color32 = Color32::from_rgb(70, 110, 255);
+pub const PANEL_FILL: Color32 = Color32::from_rgb(3, 0, 15);
 
 /// Icons embedded in the binary.
 pub mod icons {
@@ -39,7 +40,7 @@ pub fn apply_theme(ctx: &egui::Context) {
     visuals.override_text_color = Some(Color32::from_rgb(253, 255, 230));
     visuals.faint_bg_color = Color32::from_rgb(20, 18, 40);
     visuals.extreme_bg_color = Color32::from_rgb(24, 45, 0); // text edits
-    visuals.panel_fill = Color32::from_rgb(3, 0, 15);
+    visuals.panel_fill = PANEL_FILL;
     visuals.window_fill = Color32::from_rgb(10, 8, 30);
     ctx.set_visuals(visuals);
 

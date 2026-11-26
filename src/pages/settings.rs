@@ -1,4 +1,4 @@
-use eframe::egui::{self, RichText, Ui};
+use egui::{RichText, Ui};
 
 use crate::app::{Configurator, WingetStatus};
 use crate::config::{Config, State};
@@ -150,7 +150,7 @@ impl Configurator {
                 ui.label(if self.elevated { "Yes" } else { "No" });
                 ui.end_row();
                 ui.label("Renderer");
-                ui.add(egui::Label::new(self.renderer.as_str()).wrap());
+                ui.label(crate::cpu::RENDERER);
                 ui.end_row();
             });
         ui.add_space(8.0);

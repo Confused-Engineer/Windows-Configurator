@@ -4,6 +4,7 @@
 pub mod app;
 pub mod commands;
 pub mod config;
+pub mod cpu;
 pub mod download;
 pub mod paths;
 pub mod platform;

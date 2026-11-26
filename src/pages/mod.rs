@@ -9,7 +9,7 @@ mod sysinfo;
 mod tokens;
 mod troubleshoot;
 
-use eframe::egui::{self, Ui};
+use egui::Ui;
 
 pub(crate) use install_dialog::InstallDialog;
 

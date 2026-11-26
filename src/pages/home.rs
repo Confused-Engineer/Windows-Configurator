@@ -1,4 +1,4 @@
-use eframe::egui::{RichText, Ui};
+use egui::{RichText, Ui};
 
 use crate::app::{Configurator, WingetStatus};
 use crate::config::State;

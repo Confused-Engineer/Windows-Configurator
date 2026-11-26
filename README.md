@@ -34,18 +34,12 @@ It is a single `.exe` meant to live on a USB drive next to its `config.ini`.
 
 ## Virtual machines / RDP
 
-The UI renders with **wgpu on DirectX 12** by default, which falls back to the
-built-in *Microsoft Basic Render Driver* (WARP) on VMs without 3D acceleration
-and in RDP sessions — where the old OpenGL-only build showed no window. If
-that fails it retries with OpenGL. To force a renderer:
-
-```
-Windows_Configurator.exe --renderer software   # DX12 WARP (CPU)
-Windows_Configurator.exe --renderer glow       # OpenGL
-Windows_Configurator.exe --renderer wgpu       # GPU via DX12/Vulkan
-```
-
-(or set `WINCONFIG_RENDERER`). The renderer in use is shown under *Settings*.
+The UI is drawn entirely on the CPU (egui + a tile-caching software
+rasterizer, presented through GDI via `softbuffer`), with no Direct3D or
+OpenGL. It therefore renders the same in GPU-less VMs, RDP sessions and on
+real hardware: the window opens immediately, clicks stay fast, and no
+graphics driver is involved. (Older builds used OpenGL only, which is why
+the window never appeared in VMs.)
 
 ## Config file
 

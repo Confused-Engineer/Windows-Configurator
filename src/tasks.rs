@@ -6,8 +6,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 
-use eframe::egui;
-
 use crate::config::Config;
 use crate::sysinfo::SysInfo;
 use crate::winget;

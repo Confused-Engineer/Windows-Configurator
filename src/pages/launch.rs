@@ -1,4 +1,4 @@
-use eframe::egui::{self, Ui};
+use egui::Ui;
 
 use crate::app::Configurator;
 use crate::commands::{CONTROL_PANEL, Group, SYSTEM_COMMANDS, WINDOWS_SETTINGS};

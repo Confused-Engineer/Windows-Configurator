@@ -1,4 +1,4 @@
-use eframe::egui::{self, RichText, Ui};
+use egui::{RichText, Ui};
 
 use crate::app::Configurator;
 use crate::ui::{self, icons};

@@ -4,7 +4,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use eframe::egui::{self, RichText, Ui};
+use egui::{RichText, Ui};
 
 use crate::app::Configurator;
 use crate::platform::Window;

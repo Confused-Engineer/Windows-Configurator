@@ -1,4 +1,4 @@
-use eframe::egui::{self, Ui};
+use egui::Ui;
 
 use crate::app::Configurator;
 use crate::commands::{Group, NETWORK_ADMIN, TROUBLESHOOTING, TROUBLESHOOTING_HIDDEN};
