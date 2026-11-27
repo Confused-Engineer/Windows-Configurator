@@ -1,0 +1,1 @@
+This tool is meant to help assist with making Windows easier to setup, troubleshoot and maintain. The config file that goes with it is mostly intended for custimizations and not needed for core functionality. It should be user friendly and intuitive to use.

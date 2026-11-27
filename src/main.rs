@@ -1,29 +1,39 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+// Hide the console window in release builds.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// When compiling natively:
+use std::process::ExitCode;
 
-fn main() -> eframe::Result<()> {
-    let _ = davids_standard_library::env::set_exe_dir();
+use windows_configurator::{APP_NAME, Configurator, cpu, paths, platform};
 
-    let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1200.0, 600.0])
-            .with_min_inner_size([1200.0, 440.0])
-            .with_icon(
-                // NOTE: Adding an icon is optional
-                eframe::icon_data::from_png_bytes(&include_bytes!("../assets/icon-256.png")[..])
-                    .unwrap(),
-            ),
-        ..Default::default()
-    };
-
-    eframe::run_native(
-        "Windows Configurator",
-        native_options,
-        Box::new(|cc| {
-            egui_extras::install_image_loaders(&cc.egui_ctx);
-            Ok(Box::new(windows_configurator::Configurator::new(cc)))
-        }),
-    )
+fn viewport() -> egui::ViewportBuilder {
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_title(APP_NAME)
+        .with_app_id("WindowsConfigurator")
+        .with_inner_size([1200.0, 650.0])
+        // Small enough for an 800x600 / 1024x768 VM console.
+        .with_min_inner_size([760.0, 420.0]);
+    // Title bar / taskbar icon; the exe icon comes from build.rs.
+    if let Ok(png) = image::load_from_memory(include_bytes!("../assets/icon-256.png")) {
+        let rgba = png.to_rgba8();
+        viewport = viewport.with_icon(egui::IconData {
+            width: rgba.width(),
+            height: rgba.height(),
+            rgba: rgba.into_raw(),
+        });
+    }
+    viewport
 }
 
+fn main() -> ExitCode {
+    paths::init();
+    match cpu::run(viewport(), Box::new(Configurator::new)) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            platform::message_box(
+                APP_NAME,
+                &format!("The window could not be created.\n\n{e}"),
+            );
+            ExitCode::FAILURE
+        }
+    }
+}

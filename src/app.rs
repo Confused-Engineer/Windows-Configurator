@@ -1,420 +1,368 @@
-use std::os::windows::process::CommandExt;
+use std::collections::VecDeque;
+use std::sync::mpsc::Receiver;
+use std::time::{Duration, Instant};
 
-use serde::{Deserialize, Serialize};
+use egui::ImageSource;
 
+use crate::config::{self, Config};
+use crate::sysinfo::SysInfo;
+use crate::tasks::{Bus, Event};
+use crate::ui::{self, icons};
+use crate::{platform, winget};
 
-/// We derive Deserialize/Serialize so we can persist app state on shutdown.
-#[derive(serde::Deserialize, serde::Serialize)]
-#[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct Configurator {
-    //#[serde(skip)]
-    page: AppPage,
-    #[serde(skip)]
-    pub running_as_admin: bool,
-
-    #[serde(skip)]
-    pub close_app: bool,
-
-    #[serde(skip)]
-    multithreading_started: bool,
-
-    pub winget_app_search: String,
-    //#[serde(skip)]
-    pub wingetlist: WingetList,
-    #[serde(skip)]
-    pub multithread_wingetlist: (std::sync::mpsc::Sender<WingetList>, std::sync::mpsc::Receiver<WingetList>),
-
-    pub systeminfo: String,
-    #[serde(skip)]
-    pub multithread_systeminfo: (std::sync::mpsc::Sender<String>, std::sync::mpsc::Receiver<String>),
-
-    pub ipconfig: String,
-    #[serde(skip)]
-    pub multithread_ipconfig: (std::sync::mpsc::Sender<String>, std::sync::mpsc::Receiver<String>),
-
-    pub netstat: String,
-    #[serde(skip)]
-    pub multithread_netstat: (std::sync::mpsc::Sender<String>, std::sync::mpsc::Receiver<String>),
-
-    pub arp: String,
-    #[serde(skip)]
-    pub multithread_arp: (std::sync::mpsc::Sender<String>, std::sync::mpsc::Receiver<String>),
-
-    pub routetable: String,
-    #[serde(skip)]
-    pub multithread_routetable: (std::sync::mpsc::Sender<String>, std::sync::mpsc::Receiver<String>),
-
-    #[serde(skip)]
-    pub config: ini::Ini,
-    #[serde(skip)]
-    pub multithread_config: (std::sync::mpsc::Sender<ini::Ini>, std::sync::mpsc::Receiver<ini::Ini>),
-
-    pub ping: String,
-    pub traceroute: String,
-    pub nslookup: String,
-
-    #[serde(skip)]
-    pub vpn_name: String,
-    #[serde(skip)]
-    pub vpn_addr: String,
-    #[serde(skip)]
-    pub vpn_key: String,
-    #[serde(skip)]
-    pub vpn_view_key: bool,
-    #[serde(skip)]
-    pub pc_name: String,
-
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Page {
+    Home,
+    Apps,
+    Tokens,
+    Launch,
+    Troubleshoot,
+    SysInfo,
+    Settings,
 }
 
-impl Default for Configurator {
-    fn default() -> Self {
-        Self {
+impl Page {
+    const ALL: [Self; 7] = [
+        Self::Home,
+        Self::Apps,
+        Self::Tokens,
+        Self::Launch,
+        Self::Troubleshoot,
+        Self::SysInfo,
+        Self::Settings,
+    ];
 
-            page: AppPage::Main(SubPage::First),
-            
-            running_as_admin: is_admin(),
-            close_app: false,
-            multithreading_started: false,
-
-            winget_app_search: String::new(),
-
-            wingetlist: Vec::new(),
-            multithread_wingetlist: std::sync::mpsc::channel(),
-
-            systeminfo: String::new(),
-            multithread_systeminfo: std::sync::mpsc::channel(),
-
-            ipconfig: String::new(),
-            multithread_ipconfig: std::sync::mpsc::channel(),
-
-            netstat: String::new(),
-            multithread_netstat: std::sync::mpsc::channel(),
-
-            arp: String::new(),
-            multithread_arp: std::sync::mpsc::channel(),
-
-            routetable: String::new(),
-            multithread_routetable: std::sync::mpsc::channel(),
-
-            config: ini::Ini::load_from_file_noescape("config.ini").unwrap_or_default(),
-            multithread_config: std::sync::mpsc::channel(),
-
-            ping: String::new(),
-            traceroute: String::new(),
-            nslookup: String::new(),
-
-            vpn_name: String::new(),
-            vpn_addr: String::new(),
-            vpn_key: String::new(),
-            vpn_view_key: false,
-
-            pc_name: String::new(),
-        } 
+    fn title(self) -> &'static str {
+        match self {
+            Self::Home => "Welcome",
+            Self::Apps => "Install Applications",
+            Self::Tokens => "Application Tokens",
+            Self::Launch => "Launch Windows Settings",
+            Self::Troubleshoot => "Troubleshooting",
+            Self::SysInfo => "System Information",
+            Self::Settings => "Settings and Options",
+        }
     }
+
+    fn icon(self) -> ImageSource<'static> {
+        match self {
+            Self::Home => icons::home(),
+            Self::Apps => icons::download(),
+            Self::Tokens => icons::key(),
+            Self::Launch => icons::launch(),
+            Self::Troubleshoot => icons::tools(),
+            Self::SysInfo => icons::info(),
+            Self::Settings => icons::settings(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum WingetStatus {
+    Checking,
+    Missing,
+    Installing,
+    Available(String),
+}
+
+/// winget availability, catalog and search state.
+pub struct WingetState {
+    pub status: WingetStatus,
+    pub catalog: Vec<winget::Package>,
+    pub catalog_error: Option<String>,
+    pub search: String,
+    /// Indices into `catalog` matching `search`, recomputed only when the
+    /// query (`filtered_for`) or the catalog changes.
+    pub filtered: Vec<usize>,
+    filtered_for: Option<String>,
+}
+
+impl WingetState {
+    pub fn available(&self) -> bool {
+        matches!(self.status, WingetStatus::Available(_))
+    }
+
+    pub fn update_filter(&mut self) {
+        let needle = self.search.trim().to_lowercase();
+        if self.filtered_for.as_deref() == Some(needle.as_str()) {
+            return;
+        }
+        self.filtered = if needle.chars().count() < 2 {
+            Vec::new()
+        } else {
+            (0..self.catalog.len())
+                .filter(|&i| self.catalog[i].matches(&needle))
+                .collect()
+        };
+        self.filtered_for = Some(needle);
+    }
+}
+
+pub struct SysInfoState {
+    pub data: SysInfo,
+    pub loading: bool,
+    pub updated: Option<Instant>,
+}
+
+const SYSINFO_REFRESH: Duration = Duration::from_secs(30);
+const STATUS_HISTORY: usize = 30;
+
+pub struct Configurator {
+    pub(crate) page: Page,
+    pub(crate) elevated: bool,
+    pub(crate) bus: Bus,
+    events: Receiver<Event>,
+    pub(crate) config: Config,
+    pub(crate) winget: WingetState,
+    pub(crate) sysinfo: SysInfoState,
+    pub(crate) net_target: String,
+    pub(crate) pc_name: String,
+    pub(crate) install_dialog: Option<crate::pages::InstallDialog>,
+    status: VecDeque<String>,
 }
 
 impl Configurator {
-    /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // This is also where you can customize the look and feel of egui using
-        // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-        
-        // Load previous app state (if any).
-        // Note that you must enable the `persistence` feature for this to work.
-        let visuals = egui::Visuals
-        {
-            dark_mode: true,
-            override_text_color: Some(egui::Color32::from_rgb(253, 255, 230)),
-            //widgets: todo!(),
-            faint_bg_color: egui::Color32::LIGHT_GRAY, //button bg
-            extreme_bg_color: egui::Color32::from_rgb(24, 45, 00), //textedit bg
-            //window_fill: egui::Color32::DARK_BLUE,
-            panel_fill: egui::Color32::from_rgb(3, 00, 15),
-            image_loading_spinners: true,
-            ..Default::default()
-        };
+    pub fn new(ctx: &egui::Context) -> Self {
+        ui::apply_theme(ctx);
+        egui_extras::install_image_loaders(ctx);
 
-        cc.egui_ctx.set_visuals(visuals);
+        let (bus, events) = Bus::new(ctx.clone());
+        config::watch(&bus);
+        winget::refresh(&bus);
 
-        //cc.egui_ctx.set_pixels_per_point(1.2);
-        cc.egui_ctx.style_mut(|style| {
-            style.text_styles.insert(
-                egui::TextStyle::Heading, 
-                egui::FontId::new(20.0, eframe::epaint::FontFamily::Proportional)
-            );
-
-            style.text_styles.insert(
-                egui::TextStyle::Body, 
-                egui::FontId::new(14.0, eframe::epaint::FontFamily::Proportional)
-            );
-
-            style.text_styles.insert(
-                egui::TextStyle::Button, 
-                egui::FontId::new(15.0, eframe::epaint::FontFamily::Proportional)
-            );
-        }); 
-
-                
-        if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+        Self {
+            page: Page::Home,
+            elevated: platform::is_elevated(),
+            bus,
+            events,
+            config: Config::load(&crate::paths::config()),
+            winget: WingetState {
+                status: WingetStatus::Checking,
+                catalog: Vec::new(),
+                catalog_error: None,
+                search: String::new(),
+                filtered: Vec::new(),
+                filtered_for: None,
+            },
+            sysinfo: SysInfoState {
+                data: SysInfo::default(),
+                loading: false,
+                updated: None,
+            },
+            net_target: String::new(),
+            pc_name: String::new(),
+            install_dialog: None,
+            status: VecDeque::new(),
         }
-
-        Default::default()
     }
 
-}
-
-impl eframe::App for Configurator {
-    /// Called by the frame work to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
+    pub(crate) fn status(&mut self, message: impl Into<String>) {
+        if self.status.len() == STATUS_HISTORY {
+            self.status.pop_front();
+        }
+        self.status.push_back(message.into());
     }
 
-    /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        ctx.style_mut(|style| {
-            style.visuals.dark_mode = true;
-        });
-        ctx.request_repaint();
-        if !self.multithreading_started
-        {
-            self.start_multithread();
-            self.multithreading_started = true;
+    /// Reports the error of a fire-and-forget launch in the status bar.
+    pub(crate) fn report<T>(&mut self, what: &str, result: std::io::Result<T>) {
+        if let Err(e) = result {
+            self.status(format!("{what}: {e}"));
         }
+    }
 
-        if self.close_app
-        {
-            let _ = std::process::Command::new("cmd")
-                .args(["/C","msg", "%username%","Updating to latest version"])
-                .creation_flags(0x08000000)
-                .spawn();
-
-            let _ = std::process::Command::new("cmd")
-                .args(["/C","timeout", "2","&","curl.exe","-L","https://github.com/Confused-Engineer/Windows-Configurator/releases/download/nightly/Windows_Configurator.exe","-o","Windows Configurator.exe","&","timeout","1","&","Windows Configurator.exe"])
-                .creation_flags(0x08000000)
-                .spawn();
-
-            
-            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            self.close_app = false;
+    fn handle_events(&mut self, ctx: &egui::Context) {
+        while let Ok(event) = self.events.try_recv() {
+            match event {
+                Event::Status(msg) => self.status(msg),
+                Event::Config(config) => self.config = config,
+                Event::Winget(version) => {
+                    self.winget.status = match version {
+                        Some(v) => WingetStatus::Available(v),
+                        None => WingetStatus::Missing,
+                    };
+                }
+                Event::Catalog(result) => {
+                    match result {
+                        Ok(catalog) => {
+                            self.winget.catalog = catalog;
+                            self.winget.catalog_error = None;
+                        }
+                        Err(e) => self.winget.catalog_error = Some(e),
+                    }
+                    self.winget.filtered_for = None;
+                }
+                Event::SysInfo(data) => {
+                    self.sysinfo = SysInfoState {
+                        data,
+                        loading: false,
+                        updated: Some(Instant::now()),
+                    };
+                }
+                Event::Resolved(check, result) => {
+                    if let Some(dialog) = &mut self.install_dialog {
+                        dialog.resolved(check, result);
+                    }
+                }
+                Event::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            }
         }
+    }
 
-        self.unpack_multithread();
-        egui::SidePanel::left("left_panel").resizable(false).exact_width(SIDE_PANEL_WIDTH).show(ctx, |ui| {
-            
-            let main = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/home-outline.svg"))
-                .frame(false)
-                .selected(self.page == AppPage::Main(SubPage::First))
-                .corner_radius(10.0)
-                .tint(SIDE_BUTTON_COLOR))
-                .on_hover_text("Main");
+    pub(crate) fn install_winget(&mut self) {
+        self.winget.status = WingetStatus::Installing;
+        winget::bootstrap(&self.bus);
+    }
 
-            if main.clicked()
+    /// Refreshes system info when it is stale; only called while the page
+    /// is visible, so the (slow) tools never run in the background otherwise.
+    pub(crate) fn refresh_sysinfo(&mut self, ctx: &egui::Context, force: bool) {
+        if self.sysinfo.loading {
+            return;
+        }
+        let age = self.sysinfo.updated.map(|t| t.elapsed());
+        match age {
+            Some(age) if !force && age < SYSINFO_REFRESH => {
+                ctx.request_repaint_after(SYSINFO_REFRESH - age);
+            }
+            _ => {
+                self.sysinfo.loading = true;
+                self.bus.spawn("sysinfo", |bus| {
+                    bus.send(Event::SysInfo(crate::sysinfo::collect()))
+                });
+            }
+        }
+    }
+
+    fn nav(&mut self, ui: &mut egui::Ui) {
+        ui.add_space(6.0);
+        for page in Page::ALL {
+            let alert = page == Page::Settings && self.config.state != config::State::Loaded
+                || page == Page::Apps && self.winget.status == WingetStatus::Missing;
+            let tint = if alert { ui::RED } else { ui::NAV_TINT };
+            let image = egui::Image::new(page.icon())
+                .tint(tint)
+                .fit_to_exact_size(egui::vec2(32.0, 32.0));
+            let selected = self.page == page;
+            let button = egui::Button::image(image)
+                .selected(selected)
+                .frame_when_inactive(selected)
+                .corner_radius(10.0);
+            if ui
+                .add_sized([50.0, 50.0], button)
+                .on_hover_text(page.title())
+                .clicked()
             {
-                self.page = AppPage::Main(SubPage::First);
+                self.page = page;
             }
+        }
+    }
 
-            let app = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/arrow-circle-down-outline.svg"))
-                .frame(false)
-                .selected(self.page == AppPage::Applications(SubPage::First))
-                .corner_radius(10.0)
-                .tint(SIDE_BUTTON_COLOR))
-                .on_hover_text("Install Applications");
-
-            if app.clicked()
-            {
-                self.page = AppPage::Applications(SubPage::First);
-            }
-
-            let token = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/edit-2-outline.svg"))
-                .frame(false)
-                .selected(self.page == AppPage::Applications(SubPage::Second))
-                .corner_radius(10.0)
-                .tint(SIDE_BUTTON_COLOR))
-                .on_hover_text("Application Tokens");
-
-            if token.clicked()
-            {
-                self.page = AppPage::Applications(SubPage::Second);
-            }
-
-            let launch = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/external-link-outline.svg"))
-                .frame(false)
-                .selected(self.page == AppPage::Settings(SubPage::Second))
-                .corner_radius(10.0)
-                .tint(SIDE_BUTTON_COLOR))
-                .on_hover_text("Launch Windows Settings");
-
-            if launch.clicked()
-            {
-                self.page = AppPage::Settings(SubPage::Second);
-            }
-
-            let troubleshoot = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/printer-outline.svg"))
-                .frame(false)
-                .selected(self.page == AppPage::TroubleShooting(SubPage::First))
-                .corner_radius(10.0)
-                .tint(SIDE_BUTTON_COLOR))
-                .on_hover_text("Troubleshooting Options");
-
-            if troubleshoot.clicked()
-            {
-                self.page = AppPage::TroubleShooting(SubPage::First);
-            }
-
-            let info = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/info-outline.svg"))
-                .frame(false)
-                .selected(self.page == AppPage::TroubleShooting(SubPage::Second))
-                .corner_radius(10.0)
-                .tint(SIDE_BUTTON_COLOR))
-                .on_hover_text("System Information");
-
-            if info.clicked()
-            {
-                self.page = AppPage::TroubleShooting(SubPage::Second);
-            }
-
-            let config = ui.add_sized(SIDE_BUTTON_SIZE, egui::ImageButton::new(egui::include_image!("../assets/resources/images/svg/settings-2-outline.svg"))
-                .frame(false)
-                .selected(self.page == AppPage::Settings(SubPage::First))
-                .corner_radius(10.0)
-                .tint(if self.config.len() == 1 { egui::Color32::RED } else { SIDE_BUTTON_COLOR }))
-                .on_hover_text("Settings and Options");
-
-            if config.clicked()
-            {
-                self.page = AppPage::Settings(SubPage::First);
-            }
-
-            
-        });
-        
-        egui::CentralPanel::default().show(ctx, |ui| {
-            match self.page {
-                AppPage::Main(sub_page) => {
-                    ui.heading("Welcome");
-                    ui.separator();
-
-                    match sub_page {
-                        SubPage::First => self.page_main_first(ui),
-                        SubPage::Second => todo!(),
-                        SubPage::Third => todo!(),
-                    }
-                },
-                AppPage::Applications(sub_page) => {
-                    ui.heading("Applications");
-                    ui.separator();
-                    match sub_page {
-                        SubPage::First => self.page_applications_winget(ui),
-                        SubPage::Second => self.page_applications_tokens(ui),
-                        SubPage::Third => todo!(),
-                    }
-                },
-                AppPage::Settings(sub_page) => {
-                    ui.heading("Settings");
-                    ui.separator();
-                    match sub_page {
-                        SubPage::First => self.page_settings_first(ui),
-                        SubPage::Second => self.page_settings_second(ui),
-                        SubPage::Third => todo!(),
-                    }
-                },
-                AppPage::TroubleShooting(sub_page) => {
-                    ui.heading("Troubleshooting");
-                    ui.separator();
-                    match sub_page {
-                        SubPage::First => self.page_troubleshooting_first(ui),
-                        SubPage::Second => self.page_troubleshooting_second(ui),
-                        SubPage::Third => todo!(),
-                    }
-                },
-            }
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                source(ui);
+    fn status_bar(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.hyperlink_to("Source Code", crate::REPO_URL);
+            ui.label("Brought to you by a confused engineer!");
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if self.bus.busy() > 0 {
+                    ui.spinner();
+                }
+                if let Some(last) = self.status.back() {
+                    let history = self
+                        .status
+                        .iter()
+                        .rev()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    ui.add(egui::Label::new(last.as_str()).truncate())
+                        .on_hover_text(history);
+                }
             });
         });
-        
     }
 }
 
+/// Called by the window loop (`cpu.rs`) every frame: `logic` first, then `ui`.
+impl Configurator {
+    pub fn logic(&mut self, ctx: &egui::Context) {
+        self.handle_events(ctx);
+    }
 
-fn source(ui: &mut egui::Ui)
-{
-    ui.horizontal(|ui|{
-        ui.hyperlink_to("Source Code",
-        "https://github.com/Confused-Engineer/Windows-Configurator/");
-        ui.label("Brought to you by a confused engineer!");
-        egui::warn_if_debug_build(ui);
-    });
+    pub fn ui(&mut self, ui: &mut egui::Ui) {
+        egui::Panel::left("nav")
+            .resizable(false)
+            .exact_size(66.0)
+            .show(ui, |ui| self.nav(ui));
+        egui::Panel::bottom("status").show(ui, |ui| self.status_bar(ui));
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui::heading(ui, self.page.title());
+            match self.page {
+                Page::Home => self.page_home(ui),
+                Page::Apps => self.page_apps(ui),
+                Page::Tokens => self.page_tokens(ui),
+                Page::Launch => self.page_launch(ui),
+                Page::Troubleshoot => self.page_troubleshoot(ui),
+                Page::SysInfo => self.page_sysinfo(ui),
+                Page::Settings => self.page_settings(ui),
+            }
+        });
+        let ctx = ui.ctx().clone();
+        self.show_install_dialog(&ctx);
+    }
 }
 
-const SIDE_BUTTON_SIZE: [f32; 2] = [50.0,50.0];
-const SIDE_BUTTON_COLOR: egui::Color32 = egui::Color32::DARK_BLUE;
-const SIDE_PANEL_WIDTH: f32 = 65.0;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cpu::Offscreen;
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Copy)]
-enum AppPage {
-    Main(SubPage),
-    Applications(SubPage),
-    Settings(SubPage),
-    TroubleShooting(SubPage),
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Clone, Copy)]
-enum SubPage {
-    First,
-    Second,
-    Third
-}
-
-
-pub type WingetList = Vec<Winget>;
-
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
-pub struct Winget
-{
-    pub name: String,
-    pub id: String,
-    pub version: String
-}
-
-fn is_admin() -> bool
-{
-        use winapi::um::processthreadsapi::OpenProcessToken;
-        use winapi::um::securitybaseapi::GetTokenInformation;
-        use winapi::um::winnt::{
-            TokenElevation, HANDLE, TOKEN_QUERY, TOKEN_ELEVATION,
+    /// Renders every page offscreen with the window's own CPU renderer. Set
+    /// `WINCONFIG_SNAPSHOT_DIR` to also save a PNG per page.
+    #[test]
+    fn every_page_renders() {
+        let mut screen = Offscreen::new(1200, 650);
+        let mut app = Configurator::new(&screen.ctx.clone());
+        let snapshots = std::env::var_os("WINCONFIG_SNAPSHOT_DIR").map(std::path::PathBuf::from);
+        let frames = |screen: &mut Offscreen, app: &mut Configurator, rounds: usize, pause: u64| {
+            for _ in 0..rounds {
+                for _ in 0..3 {
+                    screen.frame(app);
+                }
+                std::thread::sleep(Duration::from_millis(pause)); // image loaders, background jobs
+            }
+            screen.frame(app)
         };
-        use winapi::um::processthreadsapi::GetCurrentProcess;
-        use std::mem::size_of;
-        use std::ptr::null_mut;
+        let save = |image: &image::RgbaImage, name: &str| {
+            if let Some(dir) = &snapshots {
+                std::fs::create_dir_all(dir).unwrap();
+                image.save(dir.join(format!("{name}.png"))).unwrap();
+            }
+        };
 
-        
-        
-    unsafe {
-        let mut token_handle: HANDLE = null_mut();
-        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token_handle) == 0 {
-            return false;
+        for page in Page::ALL {
+            app.page = page;
+            let image = frames(&mut screen, &mut app, 4, 100);
+            // Drawn, and dark: the panel background covers much of the frame.
+            let [r, g, b, _] = egui::Rgba::from(ui::PANEL_FILL).to_srgba_unmultiplied();
+            let bg = image.pixels().filter(|p| p.0[..3] == [r, g, b]).count();
+            assert!(
+                bg * 3 > image.pixels().len(),
+                "{page:?}: only {bg} background pixels"
+            );
+            save(&image, &format!("{page:?}"));
         }
 
-        let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
-        let mut return_length = 0;
-
-        let result = GetTokenInformation(
-            token_handle,
-            TokenElevation,
-            &mut elevation as *mut _ as *mut _,
-            size_of::<TOKEN_ELEVATION>() as u32,
-            &mut return_length,
-        );
-
-        if result == 0 {
-            return false;
-        }
-
-        return elevation.TokenIsElevated != 0
+        // The install options dialog, pre-filled from a config-style entry.
+        let request = winget::InstallRequest::from_config(
+            "PowerShell 7 (all users)",
+            "Microsoft.PowerShell --scope machine --installer-type wix",
+        )
+        .unwrap();
+        app.page = Page::Apps;
+        app.install_dialog = Some(crate::pages::InstallDialog::new(&request));
+        // With snapshots, give the live "which version?" lookup time to finish.
+        let rounds = if snapshots.is_some() { 60 } else { 2 };
+        let image = frames(&mut screen, &mut app, rounds, 300);
+        save(&image, "InstallDialog");
+        assert!(app.install_dialog.is_some(), "dialog closed by itself");
     }
 }
-
-

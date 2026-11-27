@@ -1,15 +1,23 @@
-#![warn(clippy::all, rust_2018_idioms)]
+//! Windows Configurator: a portable toolbox for setting up, troubleshooting
+//! and maintaining Windows PCs, meant to be run from a USB drive.
 
-mod tests;
-
-mod app;
-pub use app::Configurator;
-
-pub mod multithread;
-pub mod unpack_multi;
+pub mod app;
+pub mod commands;
+pub mod config;
+pub mod cpu;
+pub mod download;
+pub mod paths;
+pub mod platform;
+pub mod sysinfo;
+pub mod tasks;
+pub mod winget;
 
 mod pages;
-pub use pages::applications;
-pub use pages::main;
-pub use pages::settings;
-pub use pages::troubleshooting;
+mod ui;
+
+pub use app::Configurator;
+
+pub const APP_NAME: &str = "Windows Configurator";
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const REPO_URL: &str = "https://github.com/Confused-Engineer/Windows-Configurator";
+pub const UPDATE_URL: &str = "https://github.com/Confused-Engineer/Windows-Configurator/releases/download/nightly/Windows_Configurator.exe";
